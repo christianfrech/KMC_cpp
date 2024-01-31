@@ -61,7 +61,6 @@ size = 128
 iterations = 25
 times = [0, 100, 333.3, 666.67, 1000 ]
 Ts = [300,500,700,900]
-dots_colors = ["purple", "blue", "red", "orange", "green"]
 lines_colors = ["blue", "red", "orange"]
 dir_names = ["LiF_figs", "LiO2_figs"]
 labels = ["LiF init", "LiF final", "LiO2 init", "LiO2 final"]
@@ -88,27 +87,10 @@ for subdir, dirs, files in os.walk(rootdir):
             print(mid_filepath)
             t_max = np.zeros(25)
             t_min = np.zeros(25)
-            '''
+            
             for subdir, dirs, files in os.walk(mid_filepath):
                 for file in files:
                     if ("vacancies_output_" in file) and ("rate" not in file):
-                        line_split = file.split("_")
-                        step_time = float(line_split[4])
-                        iteration = int(line_split[2])
-                        
-                        if (t_max[iteration] == 0):
-                            t_min[iteration] = step_time
-                            t_max[iteration] = step_time
-
-                        elif (t_max[iteration] < step_time): t_max[iteration] = step_time
-                        elif (t_min[iteration] > step_time): t_min[iteration] = step_time
-
-            print(f"t_max: {t_max}, t_min: {t_min}")
-            '''
-
-            for subdir, dirs, files in os.walk(mid_filepath):
-                for file in files:
-                    if ("vacancies_output_" in file) and ("rate" not in file):  #((f"_5_" in file) or (f"_{t_min[iteration]}_" in file)): #and ((f"_{t_max[iteration]}_" in file) or (f"_{t_min[iteration]}_" in file)):
                         line_split = file.split("_")
                         step_time = float(line_split[4])
                         step = int(line_split[3])
@@ -123,7 +105,6 @@ for subdir, dirs, files in os.walk(rootdir):
                             else:
                                 idx = 1
 
-                            #print(file)
                             filepath = os.path.join(mid_filepath, file)
                             coords = read_vac_file(filepath, size, dims)
                             all_vacancies[j][iteration][idx] = coords
@@ -137,33 +118,21 @@ for subdir, dirs, files in os.walk(rootdir):
 all_vacancies = np.array(all_vacancies)
 all_times = np.array(all_times)           
 all_vacancies = np.transpose(all_vacancies, (0,2,1,3,4))
-print(f"all_vacancies.shape: {all_vacancies.shape}\n")
 
 for i in range(len(all_vacancies)):
-    print("\n")
-    print(dir_names[i])
-    print(f"all_vacancies[i].shape: {all_vacancies[i].shape}")
     all_vacancies_avg = all_vacancies[i].reshape((len(all_vacancies[i]), (len(all_vacancies[i][0])*len(all_vacancies[i][0][0])), len(all_vacancies[i][0][0][0])))
     all_vacancies_avg = np.transpose(all_vacancies_avg, (0,2,1))
-    print(f"all_vacancies_avg: {all_vacancies_avg.shape}")
     
     for j in range(len(all_vacancies_avg)):
         new_bins = np.arange(math.floor(np.min(all_vacancies_avg[j][2])), math.ceil(np.max(all_vacancies_avg[j][2])+2), 1)
         counts, bins = np.histogram(all_vacancies_avg[j][2], bins = new_bins)
         norm_arr = np.ones_like(counts) * size * iterations
         counts_normed = np.divide(counts, norm_arr) * 100
-        print(f"counts: {counts}")
-        print(f"counts_normed: {counts_normed}")
-        print(f"new_bins: {new_bins}")
-        #averages = (np.ones_like(averages)*24 - averages) * (3.502/2)
-        print(f"new_bins (reflected): {new_bins}")
-        print(f"new_bins*(3.502/2): {new_bins*(3.502/2)}\n")
         ax.scatter(new_bins[:-1]*(3.502/2), counts_normed, color = lines_colors[i], marker = shapes[j])
             
 
 xtick_labels = np.arange(0,25,1) * (3.502/2)
 xtick_labels = np.round(xtick_labels[::6],0).astype(int)
-print(f"xtick_labels: {xtick_labels}")
 ax.legend(data_names)
 ax.set_xlabel("Averge distance from interface (A)")
 ax.set_ylabel("Counts")

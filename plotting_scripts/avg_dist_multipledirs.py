@@ -60,8 +60,6 @@ def read_vac_file(filename, size, dims):
 size = 128
 iterations = 25
 times = np.arange(5,5005,5)
-Ts = [300,500,700,900]
-dots_colors = ["purple", "blue", "red", "orange", "green"]
 lines_colors = ["blue", "red", "orange"]
 dims = [16, 16, 12]
 idx=0
@@ -78,7 +76,6 @@ for subdir, dirs, files in os.walk(rootdir):
         if (("pristine_lattice" in dir) and ("1traj" not in dir)) or ("fast_and_slow" in dir):
             mid_filepath = os.path.join(rootdir, dir)
             mid_filepath = os.path.join(mid_filepath, "vacs")
-            print(mid_filepath)
             data_names.append(dir)
 
             for subdir, dirs, files in os.walk(mid_filepath):
@@ -91,7 +88,6 @@ for subdir, dirs, files in os.walk(rootdir):
                         step = int(line_split[3])
                         step_time = float(line_split[4])
                         idx = np.where(times == step)[0]
-                        #print(f"j: {j}, iteration: {iteration}, idx: {idx}, step: {step}")
                         coords = read_vac_file(filepath, size, dims)
                         all_vacancies[j][iteration][idx] = coords
                         all_times[j][iteration][idx] = step_time
@@ -101,27 +97,18 @@ for subdir, dirs, files in os.walk(rootdir):
             
 all_vacancies = np.transpose(all_vacancies, (0,2,1,3,4))
 k=0
-print(f"all_vacancies.shape: {all_vacancies.shape}")
 for i in range(len(all_vacancies)):
-    print(dir_names[i])
-    print(f"all_vacancies[i].shape: {all_vacancies[i].shape}")
     all_vacancies_avg = all_vacancies[i].reshape((len(all_vacancies[i]), (len(all_vacancies[i][0])*len(all_vacancies[i][0][0])), len(all_vacancies[i][0][0][0])))
     all_vacancies_avg = np.transpose(all_vacancies_avg, (0,2,1))
     all_times_avg = np.mean(all_times[i], axis=0)
-    print(f"all_vacancies_avg: {all_vacancies_avg.shape}")
     averages = []
 
     for j in range(len(all_vacancies_avg)):
         averages.append(np.mean(all_vacancies_avg[j][2]))
 
     averages = (np.ones_like(averages)*24 - averages) * (3.502/2) #inverting distance about end of unit cell (z = 15) and scaling by lattice constant (3.502A)
-    #print(averages)
-    print(f"averages: {averages.shape}")
-    print(f"all_times: {all_times.shape}")
-    print(f"all_times_avg: {all_times_avg.shape}")
-    print(f"i: {i}")
+
     ax.plot(all_times_avg, averages, c=lines_colors[k])
-    print("heatmap gif")
     k += 1
 
 ax.set_xlim(0,np.min(np.mean(all_times, axis=1)[:,-1]))

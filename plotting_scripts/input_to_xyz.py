@@ -72,11 +72,10 @@ def write_expanded_vac_file(filename, lines):
 
 
 pwd = os.getcwd()
-rootdir = pwd #os.path.join(pwd, "vacs") 
+rootdir = pwd 
 size = 1284
 dims = [50,32,64]
-#os.mkdir(os.path.join(pwd, "expanded_vacs"))
-newdir = pwd #os.path.join(pwd, "expanded_vacs")
+newdir = pwd
 for subdir, dirs, files in os.walk(rootdir):
     for file in files:
         if ("1024_vacancies_flat.txt" in file):

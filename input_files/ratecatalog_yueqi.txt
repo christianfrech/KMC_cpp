@@ -1,0 +1,42 @@
+atomtypes: 0:vacancy 1:lithium
+
+starting catalogs
+start catalog 1
+count: 29
+vac 1 
+config: 11111111 
+L: 0.02 
+R: 0.07
+vac 2 
+config: 10111111 11011111 11101111 11110111 11111011 11111101 11111110
+L: 0.02 0.02 0.02 0.02 0.02 0.02 0.02
+R: 0.07 0.07 0.07 0.07 0.07 0.07 0.07 
+vac 3
+config: 10011111 10101111 10110111 10111011 10111101 10111110 11001111 11010111 11011011 11011101 11011110 11100111 11101011 11101101 11101110 11110011 11110101 11110110 11111001 11111010 11111100
+L: 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 0.07 
+R: 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 
+stop catalog 1
+
+start catalog 2
+count: 1 
+config: 11111111111111 
+L: 0.1 
+R: 0.1 
+stop catalog 2
+finishing catalogs 
+
+starting regions
+region # 1
+ver: 1
+bc: 1
+ver_edge: 1
+bc_edge: 1
+finishing region
+
+region # 2
+ver: 1
+bc: 1
+ver_edge: 1
+bc_edge: 1
+finishing region
+stop regions

@@ -1,6 +1,6 @@
 import os 
 os.environ['OVITO_GUI_MODE'] = '1' # Request a session with OpenGL support
-from ovito.io import import_file
+from ovito.io import import_file 
 import math
 from ovito.vis import Viewport
 import numpy as np

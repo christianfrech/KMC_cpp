@@ -1592,6 +1592,48 @@ Region* add_region(std::vector<std::string> info) {
 }
 
 /*
+populating region_sites FourDArr with values corresponding to custom regions input file
+*/
+void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int> dim, std::string infile_name) {
+    std::cout << "drawing regions \n";
+    Region* region;
+
+    std::fstream in_file;
+    std::vector<std::string> lines;
+    std::string line;
+    std::string output;
+    int read_idx = 0;
+    std::tuple<std::string, int, int, int> tuple_out;
+    std::string lattice_pos; int x; int y; int z;
+
+    for (int i=0; i<(int)regions.size(); i++) {  
+        region = regions[i];
+        std::cout << "opening custom region file \n";
+        in_file.open(infile_name);
+        std::cout << "custom region file open\n";
+
+        if (in_file.is_open()) {
+            while ( getline (in_file,line) )
+            {
+                tuple_out = parse_reg_line(line);
+                lattice_pos = std::get<0>(tuple_out); x = std::get<1>(tuple_out); y = std::get<2>(tuple_out); 
+                z = std::get<3>(tuple_out);
+                
+                if ( (x >= dim[0]) || (y >= dim[1]) || (z >= dim[2]) ) {
+                    printf("ERROR: region site exceed simulation cell bounds");
+                    throw std::exception();
+                }
+                else {
+                    (*sites)(0,x,y,z) = region->id;
+                    (*sites)(1,x,y,z) = region->id;
+                }
+            }
+            in_file.close();
+        }
+    }
+}
+
+/*
 populating region_sites FourDArr with values corresponding to input file
 */
 void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int> dim ) {
@@ -1693,8 +1735,14 @@ std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std:
         curr_line = lines[read_idx];
     }
 
-    // entering region id in sites correspoding to pre-defined regions
-    draw_regions(temp_region_sites, regions, dims);
+    if (region_infile.empty()) {
+        std::cout << "draw_region: \n";
+        draw_regions(temp_region_sites, regions, dims);
+        }
+    else {
+        std::cout << "custom_draw_region: \n";
+        custom_draw_regions(temp_region_sites, regions, dims, region_infile);
+        }
 
     std::tuple< int, std::vector<Region*>, FourDArr* > tuple_out(read_idx, regions, temp_region_sites);
 
@@ -1709,7 +1757,7 @@ corresponding to initial configuration of simulation
 -  creating region objects 
 - creating rate catalog for bulk & pre-defined regions
 */
-Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, double vertex_rate, double edge_rate, std::vector<std::vector<double>> reg_rates) {
+Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, double vertex_rate, double edge_rate, std::vector<std::vector<double>> reg_rates) {
     std::fstream in_file;
     in_file.open(infile_name);
     std::vector<std::string> lines;

@@ -1,6 +1,9 @@
 //partition down 3d array
 #include <mpi.h>
 
+
+
+
 int main(int argc, char *argv[]) {
     nprocs;
     dims = [x,y,z];
@@ -21,17 +24,61 @@ int main(int argc, char *argv[]) {
     xprocs = gcf;
     yprocs = (int)(nprocs / gcf); 
 
-    MPI_Init()
-    size = MPI_comm_size(MPI_COMM_WORLD, &size);
-    rank = MPI_comm_rank(MPI_COMM_WORLD, &rank);
+    std::fstream in_file;
+    in_file.open(infile_name);
+    std::vector<std::string> lines;
+    std::string line;
+    int read_idx = 0;
+
+    if (in_file.is_open()) {
+        while ( getline (in_file,line) )
+        {
+            lines.push_back(line);
+        }
+        in_file.close();
+    }
+
+    // parsing first line to grab dimensions of lattice ###
+    std::string dims = lines[read_idx]; //getting dimension line
+    read_idx ++;
+    std::vector<std::string> dims_str = tokenizer(dims," "); 
+    std::vector<int> dims(3);
+
+    for (int i=0; i<(int)dims.size(); i++) {
+        dims[i] = std::stoi(dims_str[i+1]); 
+    }
+    file.close();
+
+    // specify number of procs using slurm
+    MPI_Init();
+    MPI_comm_size(MPI_COMM_WORLD, &size);
+    MPI_comm_rank(MPI_COMM_WORLD, &rank);
+    
+    // send one row to each core 
 
     // chunkify all needed variables
-    vacancies_pos_chunk
-    rate_cumsum_chunk
-    moves_shifts_chunk
-    moves_lattice_chunk
-    moves_vacs_chunk
+    int x_idx = rank % dims[0];
+    int y_idx = floor(rank / x_procs);
 
+    int x_chunk_start = (int)( dims[0]/x_procs * x_idx );
+    int x_chunk_end = (int)( dims[0]/x_procs * (x_idx + 1) );
+    int y_chunk_start = (int)( dims[1]/y_procs * y_idx );
+    int y_chunk_end = (int)( dims[1]/y_procs * (y_idx + 1) );
+    std::vector<int> chunk_bounds = {{x_chunk_start, x_chunk_end},{y_chunk_start, y_chunk_end}, {dims[2][0],dims[2][0]}};
+
+    for (int h=0; h<folders.size(); h++) {
+        for (int i=0; i<iterations; i++) {
+            for (int k=0; k<(int)edge_rates.size(); k++) {
+                std::cout << "-----------------------------------------\n";
+                std::cout << "i: " << i << "\n"; 
+                std::cout << "temp: " << temperatures[k] << "\n"; 
+                lattice = populate_lattice(in_file[h], catalog_file[h], vertex_rates[k], edge_rates[k], reg_rates[h]);
+                start = std::chrono::system_clock::now();
+                return_tuple = lattice->new_kmc_iterator(time, start, folders[h], i);
+                delete lattice;
+            }
+        }
+    }
 
     if(process_Rank==0) {
         for(i=1;i<size_Of_Comm;i++)
@@ -86,7 +133,7 @@ int main(int argc, char *argv[]) {
                 if ((l == 0) && (i == 0) && (diag_directions[s][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
                 
             /*
-                else if ((l == (int)(lattice_dim[2]-1)) && (i == 1) && (diag_directions[s][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                else if ((l == (int)(lattice_dim[2]-1)) && (i == 1) && (diag_directions[s][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*///}
             /*
                 else {
                     moves_coords[curr_move_num][0] = i;
@@ -177,50 +224,26 @@ int main(int argc, char *argv[]) {
                     moves[1] ++;
                 }
             }
-        }
         */
-
-            // finding all moves coresponding to anode stripping
-            /*
-            double strip_rate = 7.06;
-            for (int i1=0; i1<lattice_dim[0]; i1++) {
-                for (int i2=0; i2<lattice_dim[1]; i2++) {
-                    if (vacancies(1, i1, i2, (lattice_dim[2]-1)) == 0) {
-                        rate_cumsum[curr_move_num] = strip_rate + rate_cumsum[curr_move_num-1];
-                        moves_shifts[curr_move_num][0] = 0;
-                        moves_shifts[curr_move_num][1] = 0;
-                        moves_shifts[curr_move_num][2] = 0;
-                        moves_coords[curr_move_num][0] = 1;
-                        moves_coords[curr_move_num][1] = i1;
-                        moves_coords[curr_move_num][2] = i2;
-                        moves_coords[curr_move_num][3] = (lattice_dim[2]-1);
-                        moves_lattice[curr_move_num][0] = 4;
-                        moves_vacs[curr_move_num][0] = -1; 
-                        curr_move_num ++;
-                    }
-                }
-            }
-            */
-
-            // UPDATING SIZE OF DATA STRUCTURES CONTIANING COORDINATES AND RATES OF MOVES
-            num_of_moves = curr_move_num;
-            rate_cumsum.resize(num_of_moves);
-            moves_vacs.reshape(num_of_moves, 1);
-            moves_coords.reshape(num_of_moves, 4);
-            moves_shifts.reshape(num_of_moves, 3);
-            moves_lattice.reshape(num_of_moves, 1);
-            
-            MPI_Send(
-                &sum,      //Address of the message we are sending.
-                1,                  //Number of elements handled by that address.
-                MPI_DOUBLE,            //MPI_TYPE of the message we are sending.
-                0,                  //Rank of receiving process
-                1,                  //Message Tag
-                MPI_COMM_WORLD      //MPI Communicator
-                );
-            printf("\n");
         }
-    }
+
+        // UPDATING SIZE OF DATA STRUCTURES CONTIANING COORDINATES AND RATES OF MOVES
+        num_of_moves = curr_move_num;
+        rate_cumsum.resize(num_of_moves);
+        moves_vacs.reshape(num_of_moves, 1);
+        moves_coords.reshape(num_of_moves, 4);
+        moves_shifts.reshape(num_of_moves, 3);
+        moves_lattice.reshape(num_of_moves, 1);
+        
+        MPI_Send(
+            &sum,      //Address of the message we are sending.
+            1,                  //Number of elements handled by that address.
+            MPI_DOUBLE,            //MPI_TYPE of the message we are sending.
+            0,                  //Rank of receiving process
+            1,                  //Message Tag
+            MPI_COMM_WORLD      //MPI Communicator
+            );
+        printf("\n");
 
     
     printf("Process %d has received:  ",process_Rank);

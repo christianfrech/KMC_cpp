@@ -35,7 +35,6 @@ def in_poly_hull_multi(poly, points):
     return res
 
 dims = [[0,50],[0,32],[0,64]]
-#dims = [[0,10],[0,10],[0,10]]
 num_grains = [2,2,2]
 point_dims = num_grains
 points = np.zeros((num_grains[0] * num_grains[1] * num_grains[2], 3))
@@ -137,7 +136,6 @@ for vnoicell in voronoi:
                                facecolors=rng.uniform(0,1,3),
                                linewidths=0.5,edgecolors='black')
 
-    #print(f"polygon: {polygon}")
     ax.add_collection3d(polygon)
     i += 1
     

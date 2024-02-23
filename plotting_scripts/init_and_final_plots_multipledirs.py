@@ -85,8 +85,6 @@ for subdir, dirs, files in os.walk(rootdir):
             mid_filepath = os.path.join(rootdir, dir)
             mid_filepath = os.path.join(mid_filepath, "vacs")
             print(mid_filepath)
-            t_max = np.zeros(25)
-            t_min = np.zeros(25)
             
             for subdir, dirs, files in os.walk(mid_filepath):
                 for file in files:
@@ -100,6 +98,7 @@ for subdir, dirs, files in os.walk(rootdir):
                             line_split = file.split("_")
                             step_time = float(line_split[4])
                             iteration = int(line_split[2])
+
                             if (step == times[0]):
                                 idx = 0
                             else:

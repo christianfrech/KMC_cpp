@@ -2,8 +2,6 @@
 #include <mpi.h>
 
 
-
-
 int main(int argc, char *argv[]) {
     nprocs;
     dims = [x,y,z];
@@ -72,7 +70,7 @@ int main(int argc, char *argv[]) {
                 std::cout << "-----------------------------------------\n";
                 std::cout << "i: " << i << "\n"; 
                 std::cout << "temp: " << temperatures[k] << "\n"; 
-                lattice = populate_lattice(in_file[h], catalog_file[h], vertex_rates[k], edge_rates[k], reg_rates[h]);
+                lattice = populate_lattice(in_file[h], catalog_file[h], vertex_rates[k], edge_rates[k], reg_rates[h], chunk_bounds, rank, nprocs);
                 start = std::chrono::system_clock::now();
                 return_tuple = lattice->new_kmc_iterator(time, start, folders[h], i);
                 delete lattice;

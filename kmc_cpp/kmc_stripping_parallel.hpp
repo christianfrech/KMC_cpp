@@ -497,7 +497,9 @@ class Lattice {
         FourDArr bc_sites;
         FourDArr region_sites;
         int rank;
-        Matrix<int> proc_neighbors;
+        int num_procs;
+        Matrix<int> proc_x_neighbors;
+        Matrix<int> proc_y_neighbors;
         std::vector<double> probs;
         std::vector<double> rates;
         std::vector<double> rate_cumsum;
@@ -515,6 +517,7 @@ class Lattice {
         Matrix<int> configs_111;
         Matrix<int> configs_100;
         Matrix<int> vacancies_pos;
+        Matrix<int> moves_coords;
         int num_of_moves;
         std::mt19937 mt_obj;
         std::uniform_int_distribution<std::mt19937::result_type> x_rand;
@@ -523,12 +526,13 @@ class Lattice {
         int watch_var;
         int num_of_vacs;
 
-        Lattice(int xdim, int ydim, int zdim, int num_vacancies, int num_regions, int num_procs):
+        Lattice(int xdim, int ydim, int zdim, int num_vacancies, int num_regions, int num_procs, int x_neigh, int y_neigh):
             vertex_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             vacancies((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             bc_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             region_sites((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
-            proc_neighbors(num_procs, 8), 
+            proc_x_neighbors(2, x_neigh), 
+            proc_y_neighbors(2, y_neigh), 
             moves_coords((14 * num_vacancies), 4),
             moves_shifts((14 * num_vacancies), 3),
             moves_lattice((14 * num_vacancies), 1),
@@ -542,6 +546,7 @@ class Lattice {
             configs_111(1, exp_int(2,8)),
             configs_100(1, exp_int(2,14)),
             vacancies_pos(num_vacancies, 4),
+            moves_coords(num_procs, neighbors_per_side),
             mt_obj((unsigned int)(std::chrono::high_resolution_clock::now().time_since_epoch().count())),
             x_rand(0, xdim),
             y_rand(0, ydim)
@@ -1000,7 +1005,144 @@ class Lattice {
 
             return sum;
         }
- 
+
+        void parallel_processes(int i, int j, int idx) {
+            int new_proc;
+            std::vector<int> loc_buffer(4); // new location of vacancy
+    
+            if ((i == -1) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to -x direction*/
+                if (j == 0) {
+                    /*communicate with proc to (-x,-y) direction*/
+                    new_proc = proc_neighbors[rank][6]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
+                    MPI_Send(
+                        &loc_buffer[0],        //Address of the message we are sending.
+                        4,                  //Number of elements handled by that address.
+                        MPI_INT,            //MPI_TYPE of the message we are sending.
+                        new_proc,           //Rank of receiving process
+                        1,                  //Message Tag
+                        MPI_COMM_WORLD      //MPI Communicator
+                    );
+                    MPI_Recv(
+                        &loc_buffer[0],        //Address of the message we are receiving.
+                        4,                  //Number of elements handled by that address.
+                        MPI_INT,            //MPI_TYPE of the message we are sending.
+                        rank,               //Rank of sending process
+                        1,                  //Message Tag
+                        MPI_COMM_WORLD,     //MPI Communicator
+                        MPI_STATUS_IGNORE   //MPI Status Object
+                    );
+
+                    new_proc = proc_neighbors[rank][5];
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    
+                    new_proc = proc_neighbors[rank][4];
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                }
+                else if (j == (chunk_bounds[1] - 1)) { 
+                    /*communicate with proc to (-x,+y) direction*/
+                    new_proc = proc_neighbors[rank][4]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                     
+                    new_proc = proc_neighbors[rank][3];
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    
+                    new_proc = proc_neighbors[rank][2];
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    
+                }
+                else {
+                    /*communicate with proc to (-x) direction*/
+                    new_proc = proc_neighbors[rank][4]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)
+                    MPI_Send(&new_loc[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&new_loc[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                     
+                }
+            }
+            else if ((i == (chunk_bounds[0])) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to +x direction*/
+                if (j == 0) {
+                    /*communicate with proc to (+x,-y) direction*/
+                    new_proc = proc_neighbors[rank][0]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
+                    MPI_Send(
+                        &loc_buffer[0],            //Address of the message we are sending.
+                        4,                  //Number of elements handled by that address.
+                        MPI_INT,            //MPI_TYPE of the message we are sending.
+                        new_proc,                  //Rank of receiving process
+                        1,                  //Message Tag
+                        MPI_COMM_WORLD      //MPI Communicator
+                    );
+                    MPI_Recv(
+                        &loc_buffer[0],      //Address of the message we are receiving.
+                        4,                  //Number of elements handled by that address.
+                        MPI_INT,            //MPI_TYPE of the message we are sending.
+                        rank,                  //Rank of sending process
+                        1,                  //Message Tag
+                        MPI_COMM_WORLD,      //MPI Communicator
+                        MPI_STATUS_IGNORE   //MPI Status Object
+                    );
+
+                    new_proc = proc_neighbors[rank][7];
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                    new_proc = proc_neighbors[rank][6];
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                }
+                else if (j == (chunk_bounds[1] - 1)) {
+                    /*communicate with proc to (+x,+y) direction*/
+                    new_proc = proc_neighbors[rank][2]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
+                    MPI_Send(
+                        &loc_buffer[0],            //Address of the message we are sending.
+                        4,                  //Number of elements handled by that address.
+                        MPI_INT,            //MPI_TYPE of the message we are sending.
+                        new_proc,                  //Rank of receiving process
+                        1,                  //Message Tag
+                        MPI_COMM_WORLD      //MPI Communicator
+                    );
+                    MPI_Recv(
+                        &loc_buffer[0],      //Address of the message we are receiving.
+                        4,                  //Number of elements handled by that address.
+                        MPI_INT,            //MPI_TYPE of the message we are sending.
+                        rank,                  //Rank of sending process
+                        1,                  //Message Tag
+                        MPI_COMM_WORLD,      //MPI Communicator
+                        MPI_STATUS_IGNORE   //MPI Status Object
+                    );
+
+                    new_proc = proc_neighbors[rank][1];
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                    new_proc = proc_neighbors[rank][0];
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                }
+                else {
+                    /*communicate with proc to (+x) direction*/
+                    new_proc = proc_neighbors[rank][0]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
+                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                }
+            
+            }
+            else if (j == -1) {/*communicate with proc to -y direction*/ 
+                new_proc = proc_neighbors[rank][6]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)     
+                MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+            else if (j == (chunk_bounds[1] - 1)) {/*communicate with proc to +y direction*/
+                new_proc = proc_neighbors[rank][2]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
+                MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                MPI_Recv(&loc_buffer[0], 4, MPI_INT, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
+        
+        
         /*
         updating the positions of atoms on lattice according to selected move
         */
@@ -1016,26 +1158,8 @@ class Lattice {
 
             int i = new_loc[0];
             int j = new_loc[1];
-    
-            if ((i == -1) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to -x direction*/
-                if (j == 0) {
-                    
-                    proc_neighbors[rank][] // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(-y,+x) 
-                }
-                else if (j == (chunk_bounds[1] - 1)) {
-
-                }
-            }
-            else if ((i == (chunk_bounds[0])) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to +x direction*/
-                proc_neighbors[rank]
             
-            }
-            else if ((j == -1) && (moves_shifts[idx][1] == 0)) {/*communicate with proc to -y direction*/
-            
-            }
-            else if ((j == (chunk_bounds[1] - 1)) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to +y direction*/
-            
-            }
+            parallel_processes(i,j,idx);
 
             // adding vacancy corresponding to stripping move 
             if (*moves_lattice[idx] == 4) {
@@ -1831,7 +1955,7 @@ corresponding to initial configuration of simulation
 -  creating region objects 
 - creating rate catalog for bulk & pre-defined regions
 */
-Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, double vertex_rate, double edge_rate, std::vector<std::vector<double>> reg_rates) {
+Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, double vertex_rate, double edge_rate, std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_bounds, int rank, int nprocs) {
     std::fstream in_file;
     in_file.open(infile_name);
     std::vector<std::string> lines;
@@ -1856,7 +1980,6 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
 
     for (int i=0; i<(int)dims_int.size(); i++) {
         dims_int[i] = std::stoi(dims_str[i+1]); 
-
     }
     //parsing through tokens except line label (this is why i=1)    
 
@@ -2097,7 +2220,10 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     // intialzing lattice, basis vectors, vacancies, mobile ions, and fixed //
     // atoms based upon dimensions //
     std::cout << "reg_num: " << reg_num << "\n";
-    Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, reg_num);
+    int num_x_neigh = (int)( dims_int[0]/procs[0] ) + 2;
+    int num_y_neigh = (int)( dims_int[1]/procs[1] ) + 2;
+
+    Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, reg_num, nprocs, num_x_neigh, num_y_neigh);
 
     for (size_t i=0; i<2; i++) {
         for (size_t j=0; j<(size_t)dims_int[0]; j++) {
@@ -2121,7 +2247,7 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     //std::vector< std::vector<double> > reg_rates = {{2.43e10, 5.68e6},{5.97e10, 1e13}};
     //std::vector< std::vector<double> > reg_rates = {{5e13, 5e13}, {5e13, 5e13}, {5e13, 5e13}};//,{1.74e12, 5.68e6}};
 
-
+    new_lattice->rank = rank;
     new_lattice->configs_111 = configs_111;
     new_lattice->configs_100 = configs_100;
 

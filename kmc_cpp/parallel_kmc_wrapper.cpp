@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-
+    
     if(process_Rank==0) {
         for(i=1;i<size_Of_Comm;i++)
         {            

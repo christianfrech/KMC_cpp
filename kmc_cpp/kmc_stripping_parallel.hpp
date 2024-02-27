@@ -381,7 +381,24 @@ public:
     const mat_type *operator[] (size_t row) const {
         return &data_[cols_ * row];
     }
-    
+
+    /*! \brief Increase number of columns in the matrix
+     * Data are copied such that the first n elements in each row remain the same before and after this operation
+     * \param [in] new_col      Desired number of columns in the enlarged matrix
+     * \param [in] n_keep       Number of elements to preserve in all rows of the matrix
+     */
+    void remove_row(size_t row) {
+        if (row < rows_) && (row > 0) {
+            for (row_idx = row; row_idx < rows_; row_idx++) {
+                (*this)((size_t)row) = (*this)((size_t)(row +1))
+            }
+            reshape((rows_ - 1), new_col);
+        }
+        else {
+            std::cout << "ERROR: Attempted to remove row out of bounds for the matrix"
+        }
+    }
+        
     /*! \brief Increase number of columns in the matrix
      * Data are copied such that the first n[i] elements in each row remain the same before and after this operation
      * \param [in] new_col      Desired number of columns in the enlarged matrix

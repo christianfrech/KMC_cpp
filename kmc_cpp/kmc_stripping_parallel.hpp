@@ -576,6 +576,18 @@ class Lattice {
                 num_of_vacs = num_vacancies;
             }
 
+        void add_move(int i, int j, int k, int l, int curr_move_num, int s, int idx) {
+            moves_coords[curr_move_num][0] = i;
+            moves_coords[curr_move_num][1] = (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+            moves_coords[curr_move_num][2] = (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+            moves_coords[curr_move_num][3] = (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);                                        
+            moves_shifts[curr_move_num][0] = - diag_directions[s][0];
+            moves_shifts[curr_move_num][1] = - diag_directions[s][1];
+            moves_shifts[curr_move_num][2] = - diag_directions[s][2]; 
+            moves_lattice[curr_move_num][0] = 0;
+            moves_vacs[curr_move_num][0] = idx;
+        }
+
         void parallel_get_actions() {
             int curr_move_num = 0; // total number of moves at this current timestep  
             double rate; 
@@ -613,25 +625,26 @@ class Lattice {
                     if ((i == 0) && (moves_shifts[idx][0] == 0)) {
                         if (j == 0) {
                             /*check neighbor -x,-y array */
-
+                            if !(proc_x_neighbors[0][0]) {add_move(i,j,k,l,curr_move_num,s,idx);}
                         }
                         else if (j == (chunk_bounds[1] - 1)) {
                             /*check neighbor -x,+y array */
-
+                            if !(proc_x_neighbors[1][0]) {add_move(i,j,k,l,curr_move_num,s,idx);}
                         }
                         else {
-                            /*check neighbor -x,+y array */
-                        
+                            if !(y_proc_neighbors[0][(j+1)]) {add_move(i,j,k,l,curr_move_num,s,idx);}
                         }
                     }
                     
                     else if ((i == (chunk_bounds[0] - 1)) && (moves_shifts[idx][0] == 1)) {
                         if (j == 0) {
                             /*check neighbor +x,-y array */
+                            x_proc_neighbors[]
 
                         }
                         else if (j == (chunk_bounds[1] - 1)) {
                             /*check neighbor +x,+y array */
+                            x_proc_neighbors[]
 
                         }
                         else {

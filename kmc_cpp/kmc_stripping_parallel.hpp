@@ -576,6 +576,9 @@ class Lattice {
                 num_of_vacs = num_vacancies;
             }
 
+        /*
+        subroutine for adding move information to matrices stored as attributes of Lattice struc
+        */
         void add_move(int i, int j, int k, int l, int curr_move_num, int direc_sign, int s, int idx, int lattice) {
             if ((lattice == 2) || (lattice == 3)) {
                 moves_coords[curr_move_num][0] = i;
@@ -601,15 +604,27 @@ class Lattice {
                 moves_vacs[curr_move_num][0] = idx;
 
             }
+
+            // getting rate corresponding to move
+            rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0]);
+            
+            if (rate == -1) {curr_move_num --;}
+            else {
+                if (curr_move_num == 0) {rate_cumsum[curr_move_num] = rate;}
+                else {rate_cumsum[curr_move_num] = rate + rate_cumsum[curr_move_num-1];}
+            }
+            curr_move_num ++;
         }
 
+        /*
+        find actions in given subdomain assigned to processor
+        */
         void parallel_get_actions() {
             int curr_move_num = 0; // total number of moves at this current timestep  
             double rate; 
             int vacs_on_interface = 0; // vacancies at last z-index of lattice (used to calculate rate for stripping)
             int num_interface_sites = lattice_dim[0] * lattice_dim[1]; // total number of sites at last z-index 
 
-            std::vector<int> moves(2);
 
             rates.resize((int)moves_coords.rows());
             int i=0; int j=0; int k=0; int l=0;
@@ -632,6 +647,7 @@ class Lattice {
                     moves_lattice.reshape(newsize, 1);
                     moves_vacs.reshape(newsize, 1);
                 }
+
                 // finding all moves along the {111} family of vectors
                 for (int s=0; s < (int)diag_directions.size(); s++) {
                     if ((l == 0) && (i == 0) && (diag_directions[s][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
@@ -640,114 +656,71 @@ class Lattice {
                     if ((i == 0) && (moves_shifts[idx][0] == 0)) {
                         if (j == 0) {
                             /*check neighbor -x,-y array */
-                            if !(proc_x_neighbors[0][0]) {add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                            if !(proc_y_neighbors[0][0]) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
                         else if (j == (chunk_bounds[1] - 1)) {
                             /*check neighbor -x,+y array */
-                            if !(proc_x_neighbors[1][0]) {add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                            if !(proc_y_neighbors[1][(size_t)(proc_y_neighbors.rows()-1)]) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
                         else {
-                            if !(y_proc_neighbors[0][(j+1)]) {add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                            /*check neighbor -y array */
+                            if !(proc_y_neighbors[0][(j+1)]) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
                     }
                     
                     else if ((i == (chunk_bounds[0] - 1)) && (moves_shifts[idx][0] == 1)) {
                         if (j == 0) {
                             /*check neighbor +x,-y array */
-                            x_proc_neighbors[]
-
+                            if !(proc_y_neighbors[1][0]) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                         else if (j == (chunk_bounds[1] - 1)) {
                             /*check neighbor +x,+y array */
-                            x_proc_neighbors[]
-
+                            if !(proc_y_neighbors[1][(size_t)(proc_y_neighbors.rows()-1)]) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                         else {
                             /*check neighbor +y array */
-                            
+                            if !(proc_y_neighbors[1][(j+1)]) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}                            
                         }
                     }
 
                     else if ((j == 0) && (moves_shifts[idx][1] == 0)) {/*communicate with proc to -y direction*/
                         if (i == 0) {
                             /*check neighbor -x,-y array */
-
+                            if !(proc_x_neighbors[0][0]) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
                         else if  (i == (chunk_bounds[1] - 1)) {
                             /*check neighbor +x,-y array */
-
-
+                            if !(proc_x_neighbors[0][(size_t)(proc_x_neighbors.rows()-1)]) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
                         else {
                             /*check neighbor -y array */
-
+                            if !(proc_x_neighbors[0][(size_t)(i+1)]) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
                     }
 
-                    else if ((j == (chunk_bounds[1] - 1)) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to +y direction*/
+                    else if ((j == (chunk_bounds[1] - 1)) && (moves_shifts[idx][1] == 1)) {/*communicate with proc to +y direction*/
                         if (i == 0) {
                             /*check neighbor -x,+y array */
-
+                            if !(proc_x_neighbors[1][0]) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                         else if (i == (chunk_bounds[1] - 1)) {
                             /*check neighbor +x,+y array */
-
-
+                            if !(proc_x_neighbors[1][(size_t)(proc_x_neighbors.rows()-1)]) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                         else {
                             /*check neighbor +y array */
-
+                            if !(proc_x_neighbors[1][(size_t)(i+1)]) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                     }
 
                     else {
-                        moves_coords[curr_move_num][0] = i;
-
                         if ((i == 0) && (vacancies(1, (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
                             // checking that vertex site -> bc site move has new site occupied by atom
-
-                            moves_coords[curr_move_num][1] = (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
-                            moves_coords[curr_move_num][2] = (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
-                            moves_coords[curr_move_num][3] = (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);                                        
-                            moves_shifts[curr_move_num][0] = - diag_directions[s][0];
-                            moves_shifts[curr_move_num][1] = - diag_directions[s][1];
-                            moves_shifts[curr_move_num][2] = - diag_directions[s][2]; 
-                            moves_lattice[curr_move_num][0] = 0;
-                            moves_vacs[curr_move_num][0] = idx;
-                            
-                            // getting rate corresponding to move
-                            rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0]);
-                            
-                            if (rate == -1) {curr_move_num --;}
-                            else {
-                                if (curr_move_num == 0) {rate_cumsum[curr_move_num] = rate;}
-                                else {rate_cumsum[curr_move_num] = rate + rate_cumsum[curr_move_num-1];}
-                            }
-                            curr_move_num ++;
-                            moves[0] ++;
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);
                         }
-                        
                         else if ((i == 1) && (vacancies(0, (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
                             // checking that bc site -> vertex site move has new site occupied by atom
-                            moves_coords[curr_move_num][1] = (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
-                            moves_coords[curr_move_num][2] = (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
-                            moves_coords[curr_move_num][3] = (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
-                            moves_shifts[curr_move_num][0] = diag_directions[s][0];
-                            moves_shifts[curr_move_num][1] = diag_directions[s][1];
-                            moves_shifts[curr_move_num][2] = diag_directions[s][2];
-                            moves_lattice[curr_move_num][0] = 1;
-                            moves_vacs[curr_move_num][0] = idx; 
-                            
-                            // getting rate corresponding to move
-                            rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0]);
-                            
-                            if (rate == -1) {curr_move_num --;}
-                            else {
-                                if (curr_move_num == 0) {rate_cumsum[curr_move_num] = rate;}
-                                else {rate_cumsum[curr_move_num] = rate + rate_cumsum[curr_move_num-1];}
-                            }
-                            curr_move_num ++;
-                            moves[0] ++;
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);
                         }
                     }
                 }
@@ -758,44 +731,24 @@ class Lattice {
                     if ((l == 0) && (edge_directions[s][2] == -1)) {}  
                     else if ((l == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
 
-                    else if ((i == 1) && (edge_directions[s][0] == -1)) {/*communicate with proc to -x direction*/}
-                    else if ((i == (chunk_bounds[0] - 2)) && (edge_directions[s][0] == 1))  {/*communicate with proc to +x direction*/}
-                    else if ((j == 1) && (edge_directions[s][1] == -1)) {/*communicate with proc to -y direction*/}
-                    else if ((j == (chunk_bounds[1] - 2)) && (edge_directions[s][1] == 1)) {/*communicate with proc to +y direction*/}
-
+                    else if ((i == 0) && (edge_directions[s][0] == -1)) {/*communicate with proc to -x direction*/
+                        if !(proc_x_neighbors[0][j+1]) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
+                    }
+                    else if ((i == (chunk_bounds[0] - 1)) && (edge_directions[s][0] == 1))  {/*communicate with proc to +x direction*/
+                        if !(proc_x_neighbors[1][j+1]) {add_move(i,j,k,l,curr_move_num,-1,s,idx,(i+2));}                    
+                    }
+                    else if ((j == 0) && (edge_directions[s][1] == -1)) {/*communicate with proc to -y direction*/
+                        if !(proc_y_neighbors[0][j+1]) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
+                    }
+                    else if ((j == (chunk_bounds[1] - 1)) && (edge_directions[s][1] == 1)) {/*communicate with proc to +y direction*/
+                        if !(proc_y_neighbors[1][j+1]) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
+                    }
                     else if (vacancies(i, (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0) {
                         // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
-
-                        moves_shifts[curr_move_num][0] = edge_directions[s][0];
-                        moves_shifts[curr_move_num][1] = edge_directions[s][1];
-                        moves_shifts[curr_move_num][2] = edge_directions[s][2];
-                        moves_coords[curr_move_num][0] = i;
-                        moves_coords[curr_move_num][1] = (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
-                        moves_coords[curr_move_num][2] = (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
-                        moves_coords[curr_move_num][3] = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
-                        moves_vacs[curr_move_num][0] = idx; 
-                        
-                        if (i == 0) {
-                            moves_lattice[curr_move_num][0] = 2;
-                        }
-                        else if (i == 1) {
-                            moves_lattice[curr_move_num][0] = 3;
-                        }
-                        
-                        // getting rate corresponding to move
-                        rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0]);
-                        
-                        if (rate == -1) {curr_move_num --;}
-                        else {
-                            if (curr_move_num == 0) {rate_cumsum[curr_move_num] = rate;}
-                            else {rate_cumsum[curr_move_num] = rate + rate_cumsum[curr_move_num-1];}
-                        }
-                        curr_move_num ++;
-                        moves[1] ++;
+                        curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));
                     }
                 }
             }
-
             
             // UPDATING SIZE OF DATA STRUCTURES CONTIANING COORDINATES AND RATES OF MOVES
             num_of_moves = curr_move_num;
@@ -1051,57 +1004,83 @@ class Lattice {
             return sum;
         }
 
-        bool parallel_processes_check(int i, int j, int idx) {
+        /* 
+        subroutine to check if move exceeds bounds of processor domain and send
+        information to adjacent processor
+        */
+        bool parallel_processes_check(int i, int j, int idx, int ** pos) {
             int new_proc;
-            std::vector<int> loc_buffer(4); // new location of vacancy
+            std::vector<int> loc_buffer(7); // new location of vacancy
+            
+            if (side_idx == 0) { proc_x_neighbors[1][j+1] = 1; }
+            else if (side_idx == 1) { proc_y_neighbors[1][j+1] = 1; }
+            else if (side_idx == 2) { proc_x_neighbors[0][j+1] = 1; }
+            else { proc_y_neighbors[0][j+1] = 1; }
     
             if ((i == -1) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to -x direction*/
-                if (j == 0) {
+                if (j == -1) {
+                    for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
+                    loc_buffer[4] = 0;
+                    loc_buffer[5] = i;
+                    loc_buffer[6] = j;
+
                     /*communicate with proc to (-x,-y) direction*/
                     new_proc = proc_neighbors[rank][6]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
-                    
-                    MPI_Send(
+                    MPI_Isend(
                         &loc_buffer[0],        //Address of the message we are sending.
-                        4,                  //Number of elements handled by that address.
+                        7,                  //Number of elements handled by that address.
                         MPI_INT,            //MPI_TYPE of the message we are sending.
                         new_proc,           //Rank of receiving process
                         1,                  //Message Tag
                         MPI_COMM_WORLD      //MPI Communicator
                     );
-                    
 
                     new_proc = proc_neighbors[rank][5];
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 7, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                     
                     new_proc = proc_neighbors[rank][4];
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 7, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
-                else if (j == (chunk_bounds[1] - 1)) { 
+                else if (j == (chunk_bounds[1])) { 
+                    for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
+                    loc_buffer[4] = 0;
+                    loc_buffer[5] = i;
+                    loc_buffer[6] = j;
                     /*communicate with proc to (-x,+y) direction*/
                     new_proc = proc_neighbors[rank][4]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 7, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                      
                     new_proc = proc_neighbors[rank][3];
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], , MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                     
                     new_proc = proc_neighbors[rank][2];
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 5, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                     
+                    proc_x_neighbors[1][i+1] = 1;
+                    proc_y_neighbors[1][j+1] = 1;
                 }
                 else {
+                    for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
+                    loc_buffer[4] = 0;
+                    loc_buffer[5] = i;
+                    loc_buffer[6] = j;
                     /*communicate with proc to (-x) direction*/
                     new_proc = proc_neighbors[rank][4]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)
-                    MPI_Send(&new_loc[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&new_loc[0], 5, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                      
                 }
 
                 return true;
             }
             else if ((i == (chunk_bounds[0])) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to +x direction*/
-                if (j == 0) {
+                if (j == -1) {
+                    for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
+                    loc_buffer[4] = 2;
+                    loc_buffer[5] = i;
+                    loc_buffer[6] = j;
                     /*communicate with proc to (+x,-y) direction*/
                     new_proc = proc_neighbors[rank][0]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
-                    MPI_Send(
+                    MPI_Isend(
                         &loc_buffer[0],            //Address of the message we are sending.
                         4,                  //Number of elements handled by that address.
                         MPI_INT,            //MPI_TYPE of the message we are sending.
@@ -1110,15 +1089,19 @@ class Lattice {
                         MPI_COMM_WORLD      //MPI Communicator
                     );
                     new_proc = proc_neighbors[rank][7];
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
 
                     new_proc = proc_neighbors[rank][6];
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
-                else if (j == (chunk_bounds[1] - 1)) {
+                else if (j == (chunk_bounds[1])) {
+                    for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
+                    loc_buffer[4] = 2;
+                    loc_buffer[5] = i;
+                    loc_buffer[6] = j;
                     /*communicate with proc to (+x,+y) direction*/
                     new_proc = proc_neighbors[rank][2]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
-                    MPI_Send(
+                    MPI_Isend(
                         &loc_buffer[0],            //Address of the message we are sending.
                         4,                  //Number of elements handled by that address.
                         MPI_INT,            //MPI_TYPE of the message we are sending.
@@ -1128,32 +1111,43 @@ class Lattice {
                     );
 
                     new_proc = proc_neighbors[rank][1];
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
 
                     new_proc = proc_neighbors[rank][0];
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
                 else {
+                    for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
+                    loc_buffer[4] = 2;
+                    loc_buffer[5] = i;
+                    loc_buffer[6] = j;
                     /*communicate with proc to (+x) direction*/
                     new_proc = proc_neighbors[rank][0]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
-                    MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
 
                 return true;
             }
             else if (j == -1) {/*communicate with proc to -y direction*/ 
+                for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
+                loc_buffer[4] = 3;
+                loc_buffer[5] = i;
+                loc_buffer[6] = j;
                 new_proc = proc_neighbors[rank][6]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)     
-                MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 return true;
             }
-            else if (j == (chunk_bounds[1] - 1)) {/*communicate with proc to +y direction*/
+            else if (j == (chunk_bounds[1])) {/*communicate with proc to +y direction*/
+                for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
+                loc_buffer[4] = 1;
+                loc_buffer[5] = i;
+                loc_buffer[6] = j;
                 new_proc = proc_neighbors[rank][2]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
-                MPI_Send(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 return true;
             }
             return false;
         }
-        
         
         /*
         updating the positions of atoms on lattice according to selected move
@@ -1172,7 +1166,8 @@ class Lattice {
             int j = new_loc[1];
             bool parallel_transfer;
             
-            parallel_transfer = parallel_processes_check(i,j,idx);
+            parallel_transfer = parallel_processes_check(i,j,idx,&new_loc);
+
             if (parallel_transfer) {
                     // switching occupancy for old and new site in lattice array ###
                     
@@ -1204,7 +1199,6 @@ class Lattice {
                 vacancies_pos.remove_row(vacs_idx);
                 num_vacancies --;
             }
-
             else {
                 // adding vacancy corresponding to stripping move 
                 if (*moves_lattice[idx] == 4) {
@@ -1442,40 +1436,43 @@ class Lattice {
                 //MPI_Request irecv_request;
                 MPI_Status status;
                 MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test_flag, &status);
-                std::vector<int> new_loc_buffer(4);
-                std::vector<int> old_loc_buffer(2);
+                std::vector<int> new_loc_buffer(7);
                 //MPI_Test(&irecv_request, &test_flag, MPI_STATUS_IGNORE);
 
                 if (test_flag) {
-                    MPI_Irecv(&new_loc_buffer[0], 4, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &irecv_request);
-                    MPI_Irecv(&old_loc_buffer[0], 2, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    std::cout << "test_recieved: " << buffer_out[0] << " " << buffer_out[1] << " " << buffer_out[2] << " " << buffer_out[3] << "\n";
+                    recieve_move_parallel();
+                    MPI_Irecv(&new_loc_buffer[0], 7, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &irecv_request);
+                    //std::cout << "test_recieved: " << buffer_out[0] << " " << buffer_out[1] << " " << buffer_out[2] << " " << buffer_out[3] << "\n";
 
                     int old_proc = (int)status.MPI_TAG;
-                    int side_idx = old_loc_buffer[0];
-                    int site_idx = old_loc_buffer[1];
-                    //bool corner = 
+                    int side_idx = new_loc_buffer[4];
+                    int i_old = new_loc_buffer[5];
+                    int j_old = new_loc_buffer[6];
 
+                    /*
                     for (int i=0; i<(int)proc_neighbors.rows(); i++) {
                         if (proc_neighbors[rank][i] == old_proc) {
                             side_idx = i;
                             break;
                         }
                     }
+                    */
 
                     /*
                     make cases for which proc neighbors to update depending on the location of the
                     old site
                     */
-
-                    //if side_idx == 
-                    x_proc_neighbors[side_idx][] = 1;
                     
                     int i = new_loc_buffer[0];
-                    int j = new_loc_buffer[1];
-                    int k = new_loc_buffer[2];
-                    int l = new_loc_buffer[3];
-                    
+                    int j = ((new_loc_buffer[1] % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                    int k = ((new_loc_buffer[2] % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                    int l = ((new_loc_buffer[3] % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+
+                    if (side_idx == 0) { proc_x_neighbors[1][j+1] = 1; }
+                    else if (side_idx == 1) { proc_y_neighbors[1][j+1] = 1; }
+                    else if (side_idx == 2) { proc_x_neighbors[0][j+1] = 1; }
+                    else { proc_y_neighbors[0][j+1] = 1; }
+
                     int rows = vacancies_pos.rows();
                     int cols = vacancies_pos.cols();
                     vacancies_pos.reshape(rows+1, cols);

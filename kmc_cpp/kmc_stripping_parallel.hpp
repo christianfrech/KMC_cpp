@@ -17,6 +17,7 @@
 #include <chrono>
 #include <execution>
 #include <cstdint>
+#include <mpi.h>
 
 #include "hpp_files/math_func.hpp"
 #include "hpp_files/vec_func.hpp"
@@ -1008,53 +1009,59 @@ class Lattice {
         subroutine to check if move exceeds bounds of processor domain and send
         information to adjacent processor
         */
-        bool parallel_processes_check(int i, int j, int idx, int ** pos) {
+        bool parallel_processes_check(int i_old, int j_old, int k_old, int idx, int ** pos) {
             int new_proc;
-            std::vector<int> loc_buffer(7); // new location of vacancy
+            int bufferlen = 8;
+            int side_idx = -1;
+            std::vector<int> loc_buffer1(bufferlen); // new location of vacancy
+            std::vector<int> loc_buffer2(bufferlen); // new location of vacancy
+            std::vector<int> loc_buffer3(bufferlen); // new location of vacancy
             
-            if (side_idx == 0) { proc_x_neighbors[1][j+1] = 1; }
-            else if (side_idx == 1) { proc_y_neighbors[1][j+1] = 1; }
-            else if (side_idx == 2) { proc_x_neighbors[0][j+1] = 1; }
-            else { proc_y_neighbors[0][j+1] = 1; }
     
             if ((i == -1) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to -x direction*/
                 if (j == -1) {
                     for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
-                    loc_buffer[4] = 0;
-                    loc_buffer[5] = i;
-                    loc_buffer[6] = j;
+                    loc_buffer[4] = 1;
+                    loc_buffer[5] = i_old;
+                    loc_buffer[6] = j_old;
+                    loc_buffer[7] = k_old;
 
                     /*communicate with proc to (-x,-y) direction*/
                     new_proc = proc_neighbors[rank][6]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
                     MPI_Isend(
                         &loc_buffer[0],        //Address of the message we are sending.
-                        7,                  //Number of elements handled by that address.
+                        bufferlen,                  //Number of elements handled by that address.
                         MPI_INT,            //MPI_TYPE of the message we are sending.
                         new_proc,           //Rank of receiving process
                         1,                  //Message Tag
                         MPI_COMM_WORLD      //MPI Communicator
                     );
 
+                    loc_buffer[4] = 0;
                     new_proc = proc_neighbors[rank][5];
-                    MPI_Isend(&loc_buffer[0], 7, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                     
+                    loc_buffer[4] = 0;
                     new_proc = proc_neighbors[rank][4];
-                    MPI_Isend(&loc_buffer[0], 7, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
                 else if (j == (chunk_bounds[1])) { 
                     for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
                     loc_buffer[4] = 0;
-                    loc_buffer[5] = i;
-                    loc_buffer[6] = j;
+                    loc_buffer[5] = i_old;
+                    loc_buffer[6] = j_old;
+                    loc_buffer[7] = k_old;
                     /*communicate with proc to (-x,+y) direction*/
                     new_proc = proc_neighbors[rank][4]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)
-                    MPI_Isend(&loc_buffer[0], 7, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
-                     
-                    new_proc = proc_neighbors[rank][3];
-                    MPI_Isend(&loc_buffer[0], , MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                     
+                    loc_buffer[4] = 0;
+                    new_proc = proc_neighbors[rank][3];
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    
+                    loc_buffer[4] = 3;
                     new_proc = proc_neighbors[rank][2];
-                    MPI_Isend(&loc_buffer[0], 5, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                     
                     proc_x_neighbors[1][i+1] = 1;
                     proc_y_neighbors[1][j+1] = 1;
@@ -1062,12 +1069,12 @@ class Lattice {
                 else {
                     for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
                     loc_buffer[4] = 0;
-                    loc_buffer[5] = i;
-                    loc_buffer[6] = j;
+                    loc_buffer[5] = i_old;
+                    loc_buffer[6] = j_old;
+                    loc_buffer[7] = k_old;
                     /*communicate with proc to (-x) direction*/
                     new_proc = proc_neighbors[rank][4]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)
-                    MPI_Isend(&new_loc[0], 5, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
-                     
+                    MPI_Isend(&new_loc[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
 
                 return true;
@@ -1076,76 +1083,92 @@ class Lattice {
                 if (j == -1) {
                     for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
                     loc_buffer[4] = 2;
-                    loc_buffer[5] = i;
-                    loc_buffer[6] = j;
+                    loc_buffer[5] = i_old;
+                    loc_buffer[6] = j_old;
+                    loc_buffer[7] = k_old;
                     /*communicate with proc to (+x,-y) direction*/
                     new_proc = proc_neighbors[rank][0]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
                     MPI_Isend(
                         &loc_buffer[0],            //Address of the message we are sending.
-                        4,                  //Number of elements handled by that address.
+                        bufferlen,                  //Number of elements handled by that address.
                         MPI_INT,            //MPI_TYPE of the message we are sending.
                         new_proc,                  //Rank of receiving process
                         1,                  //Message Tag
                         MPI_COMM_WORLD      //MPI Communicator
                     );
-                    new_proc = proc_neighbors[rank][7];
-                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
 
+                    loc_buffer[4] = 2;
+                    new_proc = proc_neighbors[rank][7];
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+
+                    loc_buffer[4] = 1;
                     new_proc = proc_neighbors[rank][6];
-                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
                 else if (j == (chunk_bounds[1])) {
                     for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
-                    loc_buffer[4] = 2;
-                    loc_buffer[5] = i;
-                    loc_buffer[6] = j;
+                    loc_buffer[4] = 3;
+                    loc_buffer[5] = i_old;
+                    loc_buffer[6] = j_old;
+                    loc_buffer[7] = k_old;
                     /*communicate with proc to (+x,+y) direction*/
                     new_proc = proc_neighbors[rank][2]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
                     MPI_Isend(
                         &loc_buffer[0],            //Address of the message we are sending.
-                        4,                  //Number of elements handled by that address.
+                        bufferlen,                  //Number of elements handled by that address.
                         MPI_INT,            //MPI_TYPE of the message we are sending.
                         new_proc,                  //Rank of receiving process
                         1,                  //Message Tag
                         MPI_COMM_WORLD      //MPI Communicator
                     );
 
+                    loc_buffer[4] = 2;
                     new_proc = proc_neighbors[rank][1];
-                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
 
+                    loc_buffer[4] = 2;
                     new_proc = proc_neighbors[rank][0];
-                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
                 else {
                     for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
                     loc_buffer[4] = 2;
-                    loc_buffer[5] = i;
-                    loc_buffer[6] = j;
+                    loc_buffer[5] = i_old;
+                    loc_buffer[6] = j_old;
+                    loc_buffer[7] = k_old;
                     /*communicate with proc to (+x) direction*/
                     new_proc = proc_neighbors[rank][0]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
-                    MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
+                    MPI_Isend(&loc_buffer[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 }
 
                 return true;
             }
             else if (j == -1) {/*communicate with proc to -y direction*/ 
                 for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
-                loc_buffer[4] = 3;
-                loc_buffer[5] = i;
-                loc_buffer[6] = j;
+                loc_buffer[4] = 1;
+                loc_buffer[5] = i_old;
+                loc_buffer[6] = j_old;
+                loc_buffer[7] = k_old;
                 new_proc = proc_neighbors[rank][6]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)     
                 MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 return true;
             }
             else if (j == (chunk_bounds[1])) {/*communicate with proc to +y direction*/
                 for (int i=0; i<loc_buffer.size(); i++) {loc_buffer[i] = (*pos)[i];}
-                loc_buffer[4] = 1;
-                loc_buffer[5] = i;
-                loc_buffer[6] = j;
+                loc_buffer[4] = 3;
+                loc_buffer[5] = i_old;
+                loc_buffer[6] = j_old;
+                loc_buffer[7] = k_old;
                 new_proc = proc_neighbors[rank][2]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y) 
                 MPI_Isend(&loc_buffer[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD);
                 return true;
             }
+
+            if (side_idx == 0) { proc_x_neighbors[1][j+1] = 1; }
+            else if (side_idx == 1) { proc_y_neighbors[1][j+1] = 1; }
+            else if (side_idx == 2) { proc_x_neighbors[0][j+1] = 1; }
+            else { proc_y_neighbors[0][j+1] = 1; }
+
             return false;
         }
         
@@ -1162,11 +1185,17 @@ class Lattice {
                 old_loc[i] = (((new_loc[i+1] - moves_shifts[idx][i]) % lattice_dim[i]) + lattice_dim[i]) % lattice_dim[i];
             }
 
-            int i = new_loc[0];
-            int j = new_loc[1];
+            int i_old;
+            int j_old = old_loc[0];
+            int k_old = old_loc[1];
             bool parallel_transfer;
+
+            if (*moves_lattice[idx] == 3) { i_old = 1; }
+            else if  (*moves_lattice[idx] == 2) { i_old = 0; }
+            else if  (*moves_lattice[idx] == 1) { i_old = 1; }
+            else if  (*moves_lattice[idx] == 0) { i_old = 0; }
             
-            parallel_transfer = parallel_processes_check(i,j,idx,&new_loc);
+            parallel_transfer = parallel_processes_check(i_old, j_old,k_old,idx,&new_loc);
 
             if (parallel_transfer) {
                     // switching occupancy for old and new site in lattice array ###
@@ -1195,7 +1224,6 @@ class Lattice {
                     vacancies_pos[vacs_idx][0] = 1;
                 }
                 
-                int rows 
                 vacancies_pos.remove_row(vacs_idx);
                 num_vacancies --;
             }
@@ -1341,6 +1369,72 @@ class Lattice {
         }
 
         /*
+        method to receive information from other processor - utilizes nonblocking receive to
+        update lattice prior to finding new moves
+        */
+        void recieve_move_parallel(MPI_Status status, std::vector<int> * new_loc_buffer) {
+            int old_proc = (int)status.MPI_TAG;
+            int side_idx = new_loc_buffer[0][4];
+            int i_old = new_loc_buffer[0][5];
+            int j_old = new_loc_buffer[0][6];
+            int k_old = new_loc_buffer[0][6];
+
+            /*
+            for (int i=0; i<(int)proc_neighbors.rows(); i++) {
+                if (proc_neighbors[rank][i] == old_proc) {
+                    side_idx = i;
+                    break;
+                }
+            }
+            */
+
+            /*
+            make cases for which proc neighbors to update depending on the location of the
+            old site
+            */
+            int i = new_loc_buffer[0];
+            int j = ((new_loc_buffer[0][1] % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+            int k = ((new_loc_buffer[0][2] % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+            int l = ((new_loc_buffer[0][3] % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+
+            if ((j_old == (lattice_dim[0]-1)) && (k_old == (lattice_dim[1]-1))) {
+                proc_x_neighbors[0][0] = 1;
+                proc_y_neighbors[0][0] = 1;
+            }
+            else if ((j_old == (lattice_dim[0]-1)) && (k_old == 0)) {
+                proc_x_neighbors[1][0] = 1;
+                proc_y_neighbors[0][k_old+1] = 1;
+            }
+            else if ((j_old == 0) && (k_old == (lattice_dim[1]-1))) {
+                proc_x_neighbors[0][j_old+1] = 1;
+                proc_y_neighbors[1][0] = 1;
+            }
+            else if ((j_old == 0) && (k_old == 0)) {
+                proc_x_neighbors[1][j_old+1] = 1;
+                proc_y_neighbors[1][k_old+1] = 1;
+            }
+            else if (side_idx == 0) { proc_x_neighbors[1][k_old+1] = 1; }
+            else if (side_idx == 1) { proc_y_neighbors[1][j_old+1] = 1; }
+            else if (side_idx == 2) { proc_x_neighbors[0][k_old+1] = 1; }
+            else { proc_y_neighbors[0][j_old+1] = 1; }
+
+            int rows = vacancies_pos.rows();
+            int cols = vacancies_pos.cols();
+            vacancies_pos.reshape(rows+1, cols);
+            
+            vacancies((size_t)i, (size_t)j, (size_t)k, (size_t)l) = 1;
+            if (i == 0) vertex_sites((size_t)0, (size_t)j, (size_t)k, (size_t)l) = 0;
+            else bc_sites((size_t)0, (size_t)j, (size_t)k, (size_t)l) = 0;
+
+            vacancies_pos[rows][0] = i;
+            vacancies_pos[rows][1] = j;
+            vacancies_pos[rows][2] = k;
+            vacancies_pos[rows][3] = l;
+
+            num_vacancies ++;
+        }
+
+        /*
         wrapper method containing initialization of all varables in system, timer, and 
         calls to update state of system and list of moves
         */
@@ -1436,58 +1530,12 @@ class Lattice {
                 //MPI_Request irecv_request;
                 MPI_Status status;
                 MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test_flag, &status);
-                std::vector<int> new_loc_buffer(7);
+                std::vector<int> new_loc_buffer(8);
                 //MPI_Test(&irecv_request, &test_flag, MPI_STATUS_IGNORE);
 
                 if (test_flag) {
-                    recieve_move_parallel();
                     MPI_Irecv(&new_loc_buffer[0], 7, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &irecv_request);
-                    //std::cout << "test_recieved: " << buffer_out[0] << " " << buffer_out[1] << " " << buffer_out[2] << " " << buffer_out[3] << "\n";
-
-                    int old_proc = (int)status.MPI_TAG;
-                    int side_idx = new_loc_buffer[4];
-                    int i_old = new_loc_buffer[5];
-                    int j_old = new_loc_buffer[6];
-
-                    /*
-                    for (int i=0; i<(int)proc_neighbors.rows(); i++) {
-                        if (proc_neighbors[rank][i] == old_proc) {
-                            side_idx = i;
-                            break;
-                        }
-                    }
-                    */
-
-                    /*
-                    make cases for which proc neighbors to update depending on the location of the
-                    old site
-                    */
-                    
-                    int i = new_loc_buffer[0];
-                    int j = ((new_loc_buffer[1] % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
-                    int k = ((new_loc_buffer[2] % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
-                    int l = ((new_loc_buffer[3] % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
-
-                    if (side_idx == 0) { proc_x_neighbors[1][j+1] = 1; }
-                    else if (side_idx == 1) { proc_y_neighbors[1][j+1] = 1; }
-                    else if (side_idx == 2) { proc_x_neighbors[0][j+1] = 1; }
-                    else { proc_y_neighbors[0][j+1] = 1; }
-
-                    int rows = vacancies_pos.rows();
-                    int cols = vacancies_pos.cols();
-                    vacancies_pos.reshape(rows+1, cols);
-                    
-                    vacancies((size_t)i, (size_t)j, (size_t)k, (size_t)l) = 1;
-                    if (i == 0) vertex_sites((size_t)0, (size_t)j, (size_t)k, (size_t)l) = 0;
-                    else bc_sites((size_t)0, (size_t)j, (size_t)k, (size_t)l) = 0;
-
-                    vacancies_pos[rows][0] = i;
-                    vacancies_pos[rows][1] = j;
-                    vacancies_pos[rows][2] = k;
-                    vacancies_pos[rows][3] = l;
-
-                    num_vacancies ++;
-
+                    recieve_move_parallel(status, &new_loc_buffer);
                 }
 
                 new_get_actions();

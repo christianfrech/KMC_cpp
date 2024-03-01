@@ -1,4 +1,5 @@
 //partition down 3d array
+#include <mpi.h>
 
 
 int main(int argc, char *argv[]) {

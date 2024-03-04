@@ -1,6 +1,6 @@
 import numpy as np 
 import math
-
+import matplotlib.plt as plt
 
 grain_diam = 10 #angstroms
 a = 0.5 #angstroms
@@ -21,8 +21,6 @@ a3 = np.array([0, 0, c_grain])
 vecs_along_directions = [5,5,5]
 grain_locs = np.zeros((vecs_along_directions[0]*vecs_along_directions[1]*vecs_along_directions[2], 3))
 
-
-
 for i in range(vecs_along_directions[0]):
     for j in range(vecs_along_directions[1]):
         for k in range(vecs_along_directions[2]):
@@ -36,6 +34,11 @@ grain_locs = grain_locs - np.array([0,1,0]) * min
 
 print(f"grain_locs: {grain_locs}")
 
+grain_locs = np.transpose(grain_locs, (1,0))
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(grain_locs[0], grain_locs[1], grain_locs[2])
+plt.show()
 '''
 ### making layer 1 of hcp ###
 ### row 1 ###

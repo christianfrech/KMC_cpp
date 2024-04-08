@@ -92,41 +92,22 @@ def crop_sphere(arr, dim, cell_dims):
     return arr, dim
 
 
-def draw_hexagon(pos, sidelen):
-    array = np.zeros((np.ceil(np.sqrt(2)*sidelen), np.ceil(np.sqrt(2)*sidelen)))
-
-    for i in np.arange(int(sidelen/2), int(3*sidelen/2)):
-        start_idx = 0
-        end_idx = np.ceil(np.sqrt(2)*sidelen)
-        for j in np.arange(start_idx, end_idx):
-            array[i][j] = 1 
-    
-    for i in np.arange(0, int(sidelen/2)):
-        start_idx = 2*i
-        end_idx = np.ceil(np.sqrt(2)*sidelen) - 2*i
-        for j in np.arange(start_idx, end_idx):
-            array[i][j] = 1 
-    
-    for i in np.arange(0, int(sidelen/2)):
-        start_idx = 2*i
-        end_idx = np.ceil(np.sqrt(2)*sidelen) - 2*i
-        for j in np.arange(start_idx, end_idx):
-            array[i][j] = 1
-
-    return array
-
-grain_diam = 25 #angstroms
+grain_diam = 30 #angstroms
 a = 1 #angstroms
 c = 1.633 * a #angstroms
+
 a_grain = grain_diam * a
 c_grain = grain_diam * c
 grain_n_ucells = np.floor(grain_diam / a)
-x_dim = 50
-y_dim = 50
-z_dim = 50
+
+x_dim = 100
+y_dim = 100
+z_dim = 100
+
 vec_spacing = 1
 vecs_along_directions_start = [-4,-4,-4]
 vecs_along_directions_end = [20,20,20]
+
 atomtypes = ["0:vacancy", "1:lithium"]
 
 y_spacing = np.sqrt(np.power(grain_n_ucells, 2) - np.power(grain_n_ucells / 2, 2))
@@ -138,7 +119,7 @@ a3 = np.array([0, 0, c_grain])
 shift_layer2 = 1/3*a1 + 2/3*a2 + 1/2*a3 
 
 
-### drawing centers of spheres in hcp patter ###
+### drawing centers of spheres in hcp pattern ###
 num_vecs = (np.floor((np.array(vecs_along_directions_end) - np.array(vecs_along_directions_start)) * np.ones_like(vecs_along_directions_start)/vec_spacing)).astype(int)
 print(f"num_vecs: {num_vecs}")
 grain_locs = np.zeros(((2*int(num_vecs[0])*int(num_vecs[1])*int(num_vecs[2])), 3), dtype = int)
@@ -175,23 +156,6 @@ dim_list = []
 for i in range(len(all_points_masked)):
     dim_list.append([int(grain_n_ucells), tuple(all_points_masked[i])])
 
-region_types = [] 
-region_coeff = [] 
-
-
-### generating and assigning random vacancies ###
-print("generating and assigning random vacancies")
-
-print("writing lattice to output file")
-file.write(f"lattice_dims: {x_dim} {y_dim} {z_dim}\n")
-file.write(f"atomtypes: {atomtypes[0]} {atomtypes[1]}\n")
-file.write("regions begin\n")
-
-for i in range(len(region_types)):
-    if (region_types[i] == "BLOCK"):
-        file.write(f"{i+1}: {region_types[i]} xmin:{region_coeff[i][0][0]} xmax:{region_coeff[i][1][0]} ymin:{region_coeff[i][0][1]} ymax:{region_coeff[i][1][1]} zmin:{region_coeff[i][0][2]} zmax:{region_coeff[i][1][2]}\n")
-
-file.write("regions end\n")
 
 ### drawing hollow spheres as 1's in boolean array ###
 sphere_i = 0
@@ -202,12 +166,8 @@ for sphere_dim in dim_list:
     print(f"sphere_i: {sphere_i}")
     print(f"sphere_dim: {sphere_dim}")
     radius = int(sphere_dim[0] / 2)
-    #center_radius = sphere_dim[0] - 1
 
     sphere_arr = sphere((2*radius+1,2*radius+1,2*radius+1), radius, (radius,radius,radius))
-    #center_sphere_arr = sphere((2*radius+1,2*radius+1,2*radius+1), 
-    #                        center_radius, (center_radius,center_radius,center_radius))
-
 
     x_start = int(np.floor(sphere_dim[1][0] - sphere_arr.shape[0]/2))
     x_end = int(np.floor(sphere_dim[1][0] + sphere_arr.shape[0]/2))
@@ -243,8 +203,7 @@ for sphere_dim in dim_list:
     ver_nonz_not = np.nonzero(np.logical_not(onegrain_ver_random_vac_xyz))
     ax.scatter(ver_nonz_not[0], ver_nonz_not[1], ver_nonz_not[2], marker='s')
 
-
-
+    '''
     ### converting array indices and values to strings for file output ###
     #print(np.nonzero(np.logical_not(ver_random_vac_xyz)))
     for x in range(len(ver_random_vac_xyz)):
@@ -256,22 +215,29 @@ for sphere_dim in dim_list:
                 if (not bc_random_vac_xyz[x][y][z]):
                     output = f"bc {x+0.5} {y+0.5} {z+0.5} {bc_random_vac_xyz[x][y][z]} \n"
                     file.write(output)
-
+    '''    
+    
     sphere_i += 1
 
-file.close()
+### converting array indices and values to strings for file output ###
+#print(np.nonzero(np.logical_not(ver_random_vac_xyz)))
+counter = 0 
+for x in range(len(ver_random_vac_xyz)):
+    for y in range(len(ver_random_vac_xyz[0])):
+        for z in range(len(ver_random_vac_xyz[0][0])):
+            if (ver_random_vac_xyz[x][y][z]):
+                output = f"v {int(x)} {int(y)} {int(z)} \n"
+                file.write(output)
+                output = f"bc {int(x)} {int(y)} {int(z)} \n"
+                file.write(output)
+                counter += 1
 
+print(f"occupancy: {counter/(x_dim*y_dim*z_dim)}")
+
+file.close()
 
 ax.set_xlim(0,x_dim)
 ax.set_ylim(0,y_dim)
 ax.set_zlim(0,z_dim)
 plt.show()
 ax.clear()
-
-ver_nonz = np.nonzero(ver_random_vac_xyz)
-ax.scatter(ver_nonz[0], ver_nonz[1], ver_nonz[2], marker='s', alpha=0.025)
-
-ax.set_xlim(0,x_dim)
-ax.set_ylim(0,y_dim)
-ax.set_zlim(0,z_dim)
-plt.show()

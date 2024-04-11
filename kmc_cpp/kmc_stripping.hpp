@@ -583,6 +583,7 @@ class Lattice {
                     moves_lattice.reshape(newsize, 1);
                     moves_vacs.reshape(newsize, 1);
                 }
+
                 // finding all moves along the {111} family of vectors
                 for (int s=0; s < (int)diag_directions.size(); s++) {
                     if ((l == 0) && (i == 0) && (diag_directions[s][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
@@ -789,6 +790,7 @@ class Lattice {
 
             if (reg_id != 0) {
                 // checking to see if move occurs in region with specially-defined rate constants
+                //std::cout << "Region: coord[0]: " << coord[0] << " coord[1]: " << coord[1] << "coord[2]: " << coord[2] << "coord[3]: " << coord[3] << "\n";
 
                 if ((lattice == 0) || (lattice == 1)) {
                     if (LR_idx == 1) {rate = regionrates_111_L[(reg_id-1)][idx];}
@@ -960,7 +962,7 @@ class Lattice {
             int m = (int)a_types.size(); // number of atom types in system
 
             // moving vacancy from bc site to bc site 
-            else if (lattice == 3) {
+            if (lattice == 3) {
                 for (int i=0; i<(int)diag_directions.size(); i++) {
                     sum += exp_int(m,i) * vertex_sites(0, (((vac[0] - diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((vac[1] - diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((vac[2] - diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]));
                 }
@@ -970,7 +972,7 @@ class Lattice {
             }
 
             // moving vacancy from vertex site to vertex site 
-            if (lattice == 2) {
+            else if (lattice == 2) {
                 for (int i=0; i<(int)diag_directions.size(); i++) {
                     sum +=  exp_int(m,i) * bc_sites(0, (((vac[0] + diag_directions[i][0])  % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((vac[1] + diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((vac[2] + diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]));
                 }
@@ -1243,9 +1245,9 @@ class Lattice {
                 new_get_actions();
 
                 // writing output files every 500 timesteps
-                if (move_ticks % 500 == 0) {
+                if (move_ticks % 250 == 0) {
                     only_vacancies = vacancies.nonzero();
-                    ss << "1024_vacancies/" << folder << "/vacs/vacancies_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt";
+                    ss << folder << "/vacs/vacancies_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt";
                     output_filename = ss.str();
                     write_to_file(output_filename, only_vacancies);
                     ss.str("");
@@ -1253,7 +1255,7 @@ class Lattice {
                 
                     for (int l=0; l<(int)move_counts.size(); l++) {
                         //ss << "yueqi/yueqi_LiO2_moves_stripping/counts/counts_output_" << t << "_moves.txt_" << l << ".txt";
-                        ss << "1024_vacancies/" << folder << "/counts/counts_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt_" << l << ".txt";
+                        ss << folder << "/counts/counts_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt_" << l << ".txt";
                         count_filename = ss.str();
                         out_file.open(count_filename);
                         out_file << move_counts[l] << "\n";
@@ -1262,7 +1264,7 @@ class Lattice {
                         out_file.close();
 
                         //ss << "yueqi/yueqi_LiO2_moves_stripping/times/times_output_" << t << "_moves.txt_" << l << ".txt";
-                        ss << "1024_vacancies/" << folder << "/times/times_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt_" << l << ".txt";
+                        ss << folder << "/times/times_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt_" << l << ".txt";
                         times_filename = ss.str();
                         out_file.open(times_filename);
                         out_file << time_count[l] << "\n";
@@ -1279,8 +1281,6 @@ class Lattice {
             only_vacancies = vacancies.nonzero();
             all_vacancies.push_back(only_vacancies);
             all_times.push_back(t);
-
-            std::cout << "move_ticks: " << move_ticks << "\n";
 
             std::tuple< std::vector< std::vector< std::vector<int> > >, 
             std::vector<int>, std::vector<double>, std::vector<double> > return_tuple(all_vacancies, move_counts, time_count, all_times);
@@ -1641,7 +1641,7 @@ Region* add_region(std::vector<std::string> info) {
 /*
 populating region_sites FourDArr with values corresponding to custom regions input file
 */
-void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int> dim, std::string infile_name) {
+void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, int custom_reg_idx, std::vector<int> dim, std::string infile_name) {
     std::cout << "drawing regions \n";
     Region* region;
 
@@ -1657,9 +1657,9 @@ void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vec
         region = regions[i];
         std::cout << "opening custom region file \n";
         in_file.open(infile_name);
-        std::cout << "custom region file open\n";
 
         if (in_file.is_open()) {
+            std::cout << "custom region file open\n";
             while ( getline (in_file,line) )
             {
                 tuple_out = parse_reg_line(line);
@@ -1667,10 +1667,12 @@ void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vec
                 z = std::get<3>(tuple_out);
                 
                 if ( (x >= dim[0]) || (y >= dim[1]) || (z >= dim[2]) ) {
-                    printf("ERROR: region site exceed simulation cell bounds");
-                    throw std::exception();
+                    //printf("ERROR: region site exceed simulation cell bounds");
+                    //throw std::exception();
                 }
                 else {
+                    //std::cout << region->id << "\n";
+                    //std::cout << x << y << z << "\n";
                     (*sites)(0,x,y,z) = region->id;
                     (*sites)(1,x,y,z) = region->id;
                 }
@@ -1693,7 +1695,6 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
     std::vector<int> end;
     std::vector< std::vector<int> > coords;
     std::vector<int> values;
-
     std::cout << "drawing regions \n";
 
     // looping over region objects
@@ -1750,16 +1751,14 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
 /*
 wrapper function reading input file and creating region objects / populating region_sites FourDArr
 */
-std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std::string> lines, std::vector<int> dims) {
-    // gettiing num of regions
-    int num_regions = 0;
-    int read_idx = 0;
-    while (lines[num_regions].find("regions end") == std::string::npos) {num_regions ++;}
+std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std::string> lines, std::vector<int> dims, int num_regions, std::string region_infile) {
 
+    int read_idx = 0;
     std::vector<Region*> regions;
     std::vector<std::string> region_info;
     std::string curr_line = lines[read_idx];
     std::cout << "curr_line: " << lines[read_idx] << "\n";
+    std::cout << "num_regions: " << num_regions << "\n";
     FourDArr* temp_region_sites = new FourDArr(2, dims[0], dims[1], dims[2]);
 
     // initiliazing all entries as 0s
@@ -1781,6 +1780,31 @@ std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std:
         read_idx ++;
         curr_line = lines[read_idx];
     }
+    std::string arbitrary_reigon;
+    if (num_regions > (int)regions.size()) {
+        std::cout << "adding regions\n";
+
+        for (int i=(int)regions.size(); i < num_regions; i++) {
+            
+            arbitrary_reigon += std::to_string(i + (int)regions.size() + 1);
+            arbitrary_reigon += ": BLOCK xmin:0 xmax:";
+            arbitrary_reigon += std::to_string(dims[0]);
+            arbitrary_reigon += " ymin:0 ymax:";
+            arbitrary_reigon += std::to_string(dims[1]);
+            arbitrary_reigon += " zmin:0 zmax:";
+            arbitrary_reigon += std::to_string(dims[2]);
+            arbitrary_reigon += "\n";
+            region_info = {arbitrary_reigon};
+
+            Region* region = add_region(region_info);
+            regions.push_back(region);
+        }
+    } 
+
+    // entering region id in sites correspoding to pre-defined regions
+    std::cout << "regions.size(): " << regions.size() << "\n";
+    std::cout << "dims: [" << dims[0] << " " << dims[1] << " " << dims[2] << "]\n";
+    std::cout << "region_infile: " << region_infile << "\n";
 
     if (region_infile.empty()) {
         std::cout << "draw_region: \n";
@@ -1788,7 +1812,7 @@ std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std:
         }
     else {
         std::cout << "custom_draw_region: \n";
-        custom_draw_regions(temp_region_sites, regions, dims, region_infile);
+        custom_draw_regions(temp_region_sites, regions, num_regions, dims, region_infile);
         }
 
     std::tuple< int, std::vector<Region*>, FourDArr* > tuple_out(read_idx, regions, temp_region_sites);
@@ -1858,6 +1882,21 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
 
     std::tuple< int, std::vector<Region*>, FourDArr*> regions_tuple;
 
+    // gettiing num of regions
+    int num_regions = 0;
+    std::vector<std::string> num_regions_info;
+
+    if (lines[read_idx].find("num_regions") == std::string::npos) {
+        std::cout << "ERROR: no number of regions specified" << "\n";
+        exit(0);
+    }
+    else { 
+        num_regions_info = tokenizer(lines[read_idx], " ");
+        num_regions = std::stoi(num_regions_info[1]); 
+    }
+
+    read_idx ++;
+
     // reading in information about regions // 
     // reading in region dimensions and constants //
     std::string substring = "regions begin";
@@ -1867,7 +1906,7 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
 
     if (lines[read_idx].find(substring) != std::string::npos) {
         read_idx ++;
-        regions_tuple = init_regions(slice_1Dvec_str(lines, read_idx, (int)lines.size()), dims_int); 
+        regions_tuple = init_regions(slice_1Dvec_str(lines, read_idx, (int)lines.size()), dims_int, num_regions, region_infile); 
         std::cout << "region!\n";
         incriment = std::get<0>(regions_tuple); temp_regions = std::get<1>(regions_tuple); temp_region_sites = std::get<2>(regions_tuple);
     }
@@ -1940,12 +1979,11 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         }
 
         else {
-            //std::cout << "lattice position bc " << "\n";
-            //std::cout << "x: " << x << " y: " << y << " z: " << z << "\n" ;
             x = (int)(x - 0.5);
             y = (int)(y - 0.5);
             z = (int)(z - 0.5);
 
+            if (atomtype == 0) {
             if (atomtype == 0) { 
                 (*temp_bc_sites)(0,x,y,z) = 0;
                 (*temp_vacancies)(1,x,y,z) = 1; 
@@ -2069,7 +2107,7 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     // atoms based upon dimensions //
     std::cout << "reg_num: " << reg_num << "\n";
     Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], temp_regions, vacancies_count, reg_num);
-
+    //print_2Dvector(temp_region_sites->nonzero());
     for (size_t i=0; i<2; i++) {
         for (size_t j=0; j<(size_t)dims_int[0]; j++) {
             for (size_t k=0; k<(size_t)dims_int[1]; k++) {
@@ -2086,12 +2124,7 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
                 }
             }
         }
-    }
-
-    //td::vector< std::vector<double> > reg_rates = {{2.68e7, 1e13},{3.81e3, 1e13}};
-    //std::vector< std::vector<double> > reg_rates = {{2.43e10, 5.68e6},{5.97e10, 1e13}};
-    //std::vector< std::vector<double> > reg_rates = {{5e13, 5e13}, {5e13, 5e13}, {5e13, 5e13}};//,{1.74e12, 5.68e6}};
-
+    } 
 
     new_lattice->configs_111 = configs_111;
     new_lattice->configs_100 = configs_100;
@@ -2130,6 +2163,7 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         std::cout << reg_rates[i][0] << "\n";
         std::cout << reg_rates[i][1] << "\n";
         for (size_t j=0; j<cols; j++) {
+            std::cout << "j:" << j << "\n";
             new_lattice->regionrates_111_L(i,j) = reg_rates[i][0];
             new_lattice->regionrates_111_R(i,j) = reg_rates[i][1];
         }
@@ -2159,7 +2193,9 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
 
     new_lattice->rate_cumsum.resize(14*nonzero_vacs.size());
 
+
     return new_lattice;
 }
 
 /*---------------------------------------------------------------------------*/
+

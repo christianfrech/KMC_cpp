@@ -40,10 +40,10 @@ class Region {
         std::vector< std::vector< std::vector<double> > > energies; 
 
         Region(int id_in, std::string reg_type, std::string bias_direc, std::vector< std::vector<int> > params_in):
-        id(id_in), 
-        type(reg_type),
-        bias(bias_direc),
-        params(params_in)
+            id(id_in), 
+            type(reg_type),
+            bias(bias_direc),
+            params(params_in)
 
         {
             if (type == "GB") {
@@ -726,71 +726,78 @@ class Lattice {
             // DETERMINING DIRECTION OF MOVE //
 
             // moving vacancy from vertex site to bc site
-            if (regions[reg_id].bias == "x") {
-                if (lattice == 0) {
-                    // moving vacancy from vertex site to bc site
-                    if (shift[0] == 0) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-                    
-                else if (lattice == 1) {
-                    // moving vacancy from bc site to vertex site
-                    if (shift[0] == 1) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-
-                else if ((lattice == 2) || (lattice == 3)) {
-                    // moving vacancy from  vertex site to vertex site OR bc site to bc site
-                    if (shift[0] == 1) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-            }
-            else if (regions[reg_id].bais == "y") {
-                if (lattice == 0) {
-                    // moving vacancy from vertex site to bc site
-                    if (shift[1] == 0) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-                    
-                else if (lattice == 1) {
-                    // moving vacancy from bc site to vertex site
-                    if (shift[1] == 1) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-
-                else if ((lattice == 2) || (lattice == 3)) {
-                    // moving vacancy from  vertex site to vertex site OR bc site to bc site
-                    if (shift[1] == 1) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-            }
-            else if (regions[reg_id].bais == "z") {
-                if (lattice == 0) {
-                    // moving vacancy from vertex site to bc site
-                    if (shift[2] == 0) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-                    
-                else if (lattice == 1) {
-                    // moving vacancy from bc site to vertex site
-                    if (shift[2] == 1) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-
-                else if ((lattice == 2) || (lattice == 3)) {
-                    // moving vacancy from  vertex site to vertex site OR bc site to bc site
-                    if (shift[2] == 1) {LR_idx = 0;}
-                    else {LR_idx = 1;}
-                }
-            }
-            else {
-                std::cout << "ERROR: invalid directional bias" << "\n";
-                exit(0);
-            }
+            
 
             if (reg_id != 0) {
                 // checking to see if move occurs in region with specially-defined rate constants
                 //std::cout << "Region: coord[0]: " << coord[0] << " coord[1]: " << coord[1] << "coord[2]: " << coord[2] << "coord[3]: " << coord[3] << "\n";
+                //std::cout << "reg_id: " << reg_id << "\n";
+                //std::cout << "regions[reg_id]->bias: " << regions[(reg_id-1)]->bias << "\n";
+
+                if (regions[(reg_id-1)]->bias == "X") {
+                    //std::cout << "X: " << regions[(reg_id-1)]->bias << "\n";
+                    if (lattice == 0) {
+                        // moving vacancy from vertex site to bc site
+                        if (shift[0] == 0) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+                        
+                    else if (lattice == 1) {
+                        // moving vacancy from bc site to vertex site
+                        if (shift[0] == 1) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+
+                    else if ((lattice == 2) || (lattice == 3)) {
+                        // moving vacancy from  vertex site to vertex site OR bc site to bc site
+                        if (shift[0] == 1) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+                }
+                else if (regions[(reg_id-1)]->bias == "Y") {
+                    //std::cout << "Y: " << regions[(reg_id-1)]->bias << "\n";
+                    if (lattice == 0) {
+                        // moving vacancy from vertex site to bc site
+                        if (shift[1] == 0) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+                        
+                    else if (lattice == 1) {
+                        // moving vacancy from bc site to vertex site
+                        if (shift[1] == 1) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+
+                    else if ((lattice == 2) || (lattice == 3)) {
+                        // moving vacancy from  vertex site to vertex site OR bc site to bc site
+                        if (shift[1] == 1) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+                }
+                else if (regions[(reg_id-1)]->bias == "Z") {
+                    //std::cout << "Z: " << regions[(reg_id-1)]->bias << "\n";
+                    if (lattice == 0) {
+                        // moving vacancy from vertex site to bc site
+                        if (shift[2] == 0) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+                        
+                    else if (lattice == 1) {
+                        // moving vacancy from bc site to vertex site
+                        if (shift[2] == 1) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+
+                    else if ((lattice == 2) || (lattice == 3)) {
+                        // moving vacancy from  vertex site to vertex site OR bc site to bc site
+                        if (shift[2] == 1) {LR_idx = 0;}
+                        else {LR_idx = 1;}
+                    }
+                }
+                else {
+                    std::cout << "ERROR: invalid directional bias" << "\n";
+                    exit(0);
+                }
 
                 if ((lattice == 0) || (lattice == 1)) {
                     if (LR_idx == 1) {rate = regionrates_111_L[(reg_id-1)][idx];}
@@ -1206,7 +1213,7 @@ class Lattice {
                 old_time = t; 
                 
                 // terminating simulation after real-time limit reached
-                if (elapsed_seconds.count() >= 172800) {
+                if (elapsed_seconds.count() >= 3600) {
                     only_vacancies = vacancies.nonzero();
                     all_vacancies.push_back(only_vacancies);
                     t = time_lim + 1;
@@ -1246,6 +1253,7 @@ class Lattice {
 
                 // writing output files every 500 timesteps
                 if (move_ticks % 250 == 0) {
+                    //std::cout << "move_ticks: " << move_ticks << "\n";
                     only_vacancies = vacancies.nonzero();
                     ss << folder << "/vacs/vacancies_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt";
                     output_filename = ss.str();
@@ -1983,7 +1991,6 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
             y = (int)(y - 0.5);
             z = (int)(z - 0.5);
 
-            if (atomtype == 0) {
             if (atomtype == 0) { 
                 (*temp_bc_sites)(0,x,y,z) = 0;
                 (*temp_vacancies)(1,x,y,z) = 1; 
@@ -2106,7 +2113,7 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     // intialzing lattice, basis vectors, vacancies, mobile ions, and fixed //
     // atoms based upon dimensions //
     std::cout << "reg_num: " << reg_num << "\n";
-    Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], temp_regions, vacancies_count, reg_num);
+    Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, reg_num, temp_regions);
     //print_2Dvector(temp_region_sites->nonzero());
     for (size_t i=0; i<2; i++) {
         for (size_t j=0; j<(size_t)dims_int[0]; j++) {
@@ -2149,8 +2156,8 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     cols = new_lattice->regionrates_100_L.cols();
     for (size_t i=0; i<rows; i++) {
         for (size_t j=0; j<cols; j++) {
-            new_lattice->regionrates_100_L(i,j) = 1e-10;
-            new_lattice->regionrates_100_R(i,j) = 1e-10;
+            new_lattice->regionrates_100_L(i,j) = edge_rate;
+            new_lattice->regionrates_100_R(i,j) = edge_rate;
         }
     }
 
@@ -2163,7 +2170,6 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         std::cout << reg_rates[i][0] << "\n";
         std::cout << reg_rates[i][1] << "\n";
         for (size_t j=0; j<cols; j++) {
-            std::cout << "j:" << j << "\n";
             new_lattice->regionrates_111_L(i,j) = reg_rates[i][0];
             new_lattice->regionrates_111_R(i,j) = reg_rates[i][1];
         }

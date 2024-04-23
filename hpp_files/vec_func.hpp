@@ -6,6 +6,49 @@
 #include <cstdlib>
 #include <fstream>
 
+struct lattice_return_struct {
+    public:
+        /*! \brief Constructor
+        */
+
+        lattice_return_struct(std::vector< std::vector< std::vector<int> > > all_vacancies,
+        std::vector<int> move_counts, 
+        std::vector<double> time_count, 
+        std::vector<double> all_times):
+            all_vacancies_(all_vacancies),
+            move_counts_(move_counts),
+            time_count_(time_count),
+            all_times_(all_times)
+            {}
+
+        /*! \return get x field of struc */
+        std::vector< std::vector< std::vector<int> > > get_all_vacancies() const {
+            return all_vacancies_;
+        }
+
+        /*! \return get y field of struc */
+        std::vector<int> get_move_counts() const {
+            return move_counts_;
+        }
+
+        /*! \return get z field of struc */
+        std::vector<double> get_time_count() const {
+            return time_count_;
+        }
+
+        /*! \return get z field of struc */
+        std::vector<double> get_all_times() const {
+            return all_times_;
+        }
+        
+    private:
+        std::vector< std::vector< std::vector<int> > > all_vacancies_; 
+        std::vector<int> move_counts_; 
+        std::vector<double> time_count_; 
+        std::vector<double> all_times_;
+};
+
+typedef struct lattice_return_struct lattice_return_struct;
 
 std::vector< std::vector<int> > vect_create_2D(size_t N, size_t M) {
     std::vector< std::vector<int> > vec_out(N);
@@ -261,4 +304,18 @@ int searchsorted_recursive(std::vector<double>* a, double item, int low, int hig
     if (item > (*a)[mid]) {return searchsorted_recursive(a, item, (mid + 1), high); }
     
     return searchsorted_recursive(a, item, low, (mid - 1));
+}
+
+
+int find_max_element(std::vector<double> * max_rates) {
+    int max_idx;
+    double max_val = 0;
+
+    for (int i=0; i<(int)(*max_rates).size(); i++) {
+        if ( (*max_rates)[i] >= max_val ) {
+            max_idx = i;
+            max_val = (*max_rates)[i];
+        }
+    }
+    return max_idx;
 }

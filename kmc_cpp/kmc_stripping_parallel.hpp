@@ -572,8 +572,10 @@ class Lattice {
         FourDArr region_sites;
         int rank;
         int num_procs;
-        Matrix<int> proc_x_neighbors;
-        Matrix<int> proc_y_neighbors;
+        Matrix<int> proc_neg_x_neighbors;
+        Matrix<int> proc_neg_y_neighbors;
+        Matrix<int> proc_pos_x_neighbors;
+        Matrix<int> proc_pos_y_neighbors;
         Matrix<int> proc_neighbors;
         std::vector<double> probs;
         std::vector<double> rates;
@@ -606,8 +608,10 @@ class Lattice {
             vacancies((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             bc_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             region_sites((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
-            proc_x_neighbors(2, x_neigh), 
-            proc_y_neighbors(2, y_neigh), 
+            proc_neg_x_neighbors(y_neigh, zdim), 
+            proc_neg_y_neighbors(x_neigh, zdim),
+            proc_pos_x_neighbors(y_neigh, zdim), 
+            proc_pos_y_neighbors(x_neigh, zdim),  
             proc_neighbors(num_procs, 8),
             moves_coords((14 * num_vacancies), 4),
             moves_shifts((14 * num_vacancies), 3),
@@ -715,63 +719,64 @@ class Lattice {
                     if ((l == 0) && (i == 0) && (diag_directions[s][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
                     else if ((l == (int)(lattice_dim[2]-1)) && (i == 1) && (diag_directions[s][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
                     
-                    if ((i == 0) && (moves_shifts[idx][0] == 0)) {
-                        if (j == 0) {
+                    if ((i == 0) && (j == 0) && (moves_shifts[idx][0] == 0)) {
+                        if (k == 0) {
                             /*check neighbor -x,-y array */
-                            if (!(proc_y_neighbors[0][0])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                            if (!(proc_neg_x_neighbors[0][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
-                        else if (j == (chunk_bounds[1][1] - 1)) {
+                        else if (k == (chunk_bounds[1][1] - 1)) {
                             /*check neighbor -x,+y array */
-                            if (!(proc_y_neighbors[1][(size_t)(proc_y_neighbors.rows()-1)])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                            if (!(proc_neg_x_neighbors[(size_t)(proc_neg_x_neighbors.rows() - 1)][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
                         else {
-                            /*check neighbor -y array */
-                            if (!(proc_y_neighbors[0][(j+1)])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                            /*check neighbor -x array */
+                            if (!(proc_neg_x_neighbors[k+1][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
                         }
                     }
                     
-                    else if ((i == (chunk_bounds[0][1] - 1)) && (moves_shifts[idx][0] == 1)) {
-                        if (j == 0) {
+                    else if ((i == 1) && (j == (chunk_bounds[0][1] - 1)) && (moves_shifts[idx][0] == 1)) {
+                        if (k == 0) {
                             /*check neighbor +x,-y array */
-                            if (!(proc_y_neighbors[1][0])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
+                            if (!(proc_pos_x_neighbors[0][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
-                        else if (j == (chunk_bounds[1][1] - 1)) {
+                        else if (k == (chunk_bounds[1][1] - 1)) {
                             /*check neighbor +x,+y array */
-                            if (!(proc_y_neighbors[1][(size_t)(proc_y_neighbors.rows()-1)])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
+                            if (!(proc_pos_x_neighbors[(size_t)(proc_pos_x_neighbors.rows()-1)][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                         else {
-                            /*check neighbor +y array */
-                            if (!(proc_y_neighbors[1][(j+1)])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}                            
+                            /*check neighbor +x array */
+                            if (!(proc_pos_x_neighbors[k+1][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                     }
 
-                    else if ((j == 0) && (moves_shifts[idx][1] == 0)) {/*communicate with proc to -y direction*/
-                        if (i == 0) {
+                    else if ((i == 0) && (k == 0) && (moves_shifts[idx][1] == 0)) {/*communicate with proc to -y direction*/
+                        
+                        //if (i == 0) {
                             /*check neighbor -x,-y array */
-                            if (!(proc_x_neighbors[0][0])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
-                        }
-                        else if  (i == (chunk_bounds[1][1] - 1)) {
+                        //    if (!(proc_neg_y_neighbors[0][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                        //}
+                        //else if  (i == (chunk_bounds[1][1] - 1)) {
                             /*check neighbor +x,-y array */
-                            if (!(proc_x_neighbors[0][(size_t)(proc_x_neighbors.rows()-1)])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
-                        }
-                        else {
+                        //    if (!(proc_pos_x_neighbors[0][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                        //}
+                        //if  {
                             /*check neighbor -y array */
-                            if (!(proc_x_neighbors[0][(size_t)(i+1)])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
-                        }
+                            if (!(proc_neg_y_neighbors[j+1][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0);}
+                        //}
                     }
 
-                    else if ((j == (chunk_bounds[1][1] - 1)) && (moves_shifts[idx][1] == 1)) {/*communicate with proc to +y direction*/
-                        if (i == 0) {
+                    else if ((i == 1) && (k == (chunk_bounds[1][1] - 1)) && (moves_shifts[idx][1] == 1)) {/*communicate with proc to +y direction*/
+                        if (k == 0) {
                             /*check neighbor -x,+y array */
-                            if (!(proc_x_neighbors[1][0])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
+                            if (!(proc_pos_y_neighbors[0][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
-                        else if (i == (chunk_bounds[1][1] - 1)) {
+                        else if (k == (chunk_bounds[1][1] - 1)) {
                             /*check neighbor +x,+y array */
-                            if (!(proc_x_neighbors[1][(size_t)(proc_x_neighbors.rows()-1)])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
+                            if (!(proc_pos_y_neighbors[(size_t)(proc_pos_y_neighbors.rows()-1)][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                         else {
                             /*check neighbor +y array */
-                            if (!(proc_x_neighbors[1][(size_t)(i+1)])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
+                            if (!(proc_pos_y_neighbors[j+1][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
                         }
                     }
 
@@ -794,16 +799,16 @@ class Lattice {
                     else if ((l == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
 
                     else if ((i == 0) && (edge_directions[s][0] == -1)) {/*communicate with proc to -x direction*/
-                        if (!(proc_x_neighbors[0][j+1])) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
+                        if (!(proc_neg_x_neighbors[k+1][l+1])) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
                     }
                     else if ((i == (chunk_bounds[0][1] - 1)) && (edge_directions[s][0] == 1))  {/*communicate with proc to +x direction*/
-                        if (!(proc_x_neighbors[1][j+1])) {add_move(i,j,k,l,curr_move_num,-1,s,idx,(i+2));}                    
+                        if (!(proc_pos_x_neighbors[k+1][l+1])) {add_move(i,j,k,l,curr_move_num,-1,s,idx,(i+2));}                    
                     }
                     else if ((j == 0) && (edge_directions[s][1] == -1)) {/*communicate with proc to -y direction*/
-                        if (!(proc_y_neighbors[0][j+1])) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
+                        if (!(proc_neg_y_neighbors[j+1][l+1])) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
                     }
                     else if ((j == (chunk_bounds[1][1] - 1)) && (edge_directions[s][1] == 1)) {/*communicate with proc to +y direction*/
-                        if (!(proc_y_neighbors[1][j+1])) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
+                        if (!(proc_pos_y_neighbors[j+1][l+1])) {add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2));}                    
                     }
                     else if (vacancies(i, (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0) {
                         // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
@@ -1007,27 +1012,26 @@ class Lattice {
         subroutine to check if move exceeds bounds of processor domain and send
         information to adjacent processor
         */
-        bool parallel_processes_check(int i_old, int j_old, int k_old, int l_old, int idx, int **new_loc) {
+        bool parallel_processes_check(int i_old, int j_old, int k_old, int l_old, int idx, int ** new_loc) {
             int new_proc;
-            int bufferlen = 9;
+            int bufferlen = 8;
             int side_idx = -1;
-            std::vector<int> loc_buffer1(bufferlen); // new location of vacancy 
-            std::vector<int> loc_buffer2(bufferlen); // new location of vacancy 
-            std::vector<int> loc_buffer3(bufferlen); // new location of vacancy 
+            
+            std::vector<int> loc_buffer1(bufferlen); // new location of vacancy
+            std::vector<int> loc_buffer2(bufferlen); // new location of vacancy
+            std::vector<int> loc_buffer3(bufferlen); // new location of vacancy
+
             MPI_Request request1;
             MPI_Request request2;
             MPI_Request request3;
-            //std::vector<int> loc_buffer2(bufferlen); // new location of vacancy
-            //std::vector<int> loc_buffer3(bufferlen); // new location of vacancy
-
-            int i = (*new_loc)[0];
+            
             int j = (*new_loc)[1];
             int k = (*new_loc)[2];
             int l = (*new_loc)[3];
 
-            if ((i == -1) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to -x direction*/
-                if (j == -1) {
-                    for (int i=0; i<loc_buffer1.size(); i++) {loc_buffer1[i] = (*new_loc)[i];}
+            if ((j == -1) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to -x direction*/
+                if (k == -1) {
+                    for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 1;
                     loc_buffer1[5] = i_old;
                     loc_buffer1[6] = j_old;
@@ -1046,7 +1050,7 @@ class Lattice {
                     ); 
 
 
-                    for (int i=0; i<loc_buffer2.size(); i++) {loc_buffer2[i] = (*new_loc)[i];}
+                    for (int idx=0; idx<loc_buffer2.size(); idx++) {loc_buffer2[idx] = (*new_loc)[idx];}
                     loc_buffer2[4] = 0;
                     loc_buffer2[5] = i_old;
                     loc_buffer2[6] = j_old;
@@ -1056,7 +1060,7 @@ class Lattice {
                     MPI_Isend(&loc_buffer2[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request2);
                     
 
-                    for (int i=0; i<loc_buffer3.size(); i++) {loc_buffer3[i] = (*new_loc)[i];}
+                    for (int idx=0; idx<loc_buffer3.size(); idx++) {loc_buffer3[idx] = (*new_loc)[idx];}
                     loc_buffer3[4] = 0;
                     loc_buffer3[5] = i_old;
                     loc_buffer3[6] = j_old;
@@ -1065,9 +1069,9 @@ class Lattice {
                     new_proc = proc_neighbors[rank][4];
                     MPI_Isend(&loc_buffer3[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request3);
 
-                    proc_y_neighbors[0][j_old+1] = 1;
+                    proc_neg_y_neighbors[0][l_old+1] = 1;
                 }
-                else if (j == (chunk_bounds[1][1])) { 
+                else if (k == (chunk_bounds[1][1])) { 
                     loc_buffer1[4] = 0;
                     loc_buffer1[5] = i_old;
                     loc_buffer1[6] = j_old;
@@ -1077,7 +1081,7 @@ class Lattice {
                     new_proc = proc_neighbors[rank][4]; // proc_neighbors indices follow: 0:+x, 1:(+x,+y), 2:+y, 3:(-x,+y), 4:-x, 5:(-x,-y), 6:-y, 7:(+x,-y)
                     MPI_Isend(&loc_buffer1[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request1);
                     
-                    for (int i=0; i<loc_buffer2.size(); i++) {loc_buffer2[i] = (*new_loc)[i];}
+                    for (int idx=0; idx<loc_buffer2.size(); idx++) {loc_buffer2[idx] = (*new_loc)[idx];}
                     loc_buffer2[4] = 0;
                     loc_buffer2[5] = i_old;
                     loc_buffer2[6] = j_old;
@@ -1086,7 +1090,7 @@ class Lattice {
                     new_proc = proc_neighbors[rank][3];
                     MPI_Isend(&loc_buffer2[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request2);
                     
-                    for (int i=0; i<loc_buffer3.size(); i++) {loc_buffer3[i] = (*new_loc)[i];}
+                    for (int idx=0; idx<loc_buffer3.size(); idx++) {loc_buffer3[idx] = (*new_loc)[idx];}
                     loc_buffer3[4] = 3;
                     loc_buffer3[5] = i_old;
                     loc_buffer3[6] = j_old;
@@ -1095,10 +1099,10 @@ class Lattice {
                     new_proc = proc_neighbors[rank][2];
                     MPI_Isend(&loc_buffer3[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request3);
                     
-                    proc_y_neighbors[1][j_old+1] = 1;
+                    proc_pos_y_neighbors[0][k_old+1] = 1;
                 }
                 else {
-                    for (int i=0; i<loc_buffer1.size(); i++) {loc_buffer1[i] = (*new_loc)[i];}
+                    for (int i=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 0;
                     loc_buffer1[5] = i_old;
                     loc_buffer1[6] = j_old;
@@ -1111,9 +1115,9 @@ class Lattice {
 
                 return true;
             }
-            else if ((i == (chunk_bounds[0][1])) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to +x direction*/
-                if (j == -1) {
-                    for (int i=0; i<loc_buffer1.size(); i++) {loc_buffer1[i] = (*new_loc)[i];}
+            else if ((j == (chunk_bounds[0][1])) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to +x direction*/
+                if (k == -1) {
+                    for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 2;
                     loc_buffer1[5] = i_old;
                     loc_buffer1[6] = j_old;
@@ -1131,7 +1135,7 @@ class Lattice {
                         &request1
                     );
 
-                    for (int i=0; i<loc_buffer2.size(); i++) {loc_buffer2[i] = (*new_loc)[i];}
+                    for (int idx=0; idx<loc_buffer2.size(); idx++) {loc_buffer2[idx] = (*new_loc)[idx];}
                     loc_buffer2[4] = 2;
                     loc_buffer2[5] = i_old;
                     loc_buffer2[6] = j_old;
@@ -1140,7 +1144,7 @@ class Lattice {
                     new_proc = proc_neighbors[rank][7];
                     MPI_Isend(&loc_buffer2[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request2);
 
-                    for (int i=0; i<loc_buffer3.size(); i++) {loc_buffer3[i] = (*new_loc)[i];}
+                    for (int idx=0; idx<loc_buffer3.size(); idx++) {loc_buffer3[idx] = (*new_loc)[idx];}
                     loc_buffer3[4] = 1;
                     loc_buffer3[5] = i_old;
                     loc_buffer3[6] = j_old;
@@ -1149,10 +1153,10 @@ class Lattice {
                     new_proc = proc_neighbors[rank][6];
                     MPI_Isend(&loc_buffer3[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request3);
 
-                    proc_y_neighbors[0][j_old+1] = 1;
+                    proc_neg_y_neighbors[(int)(proc_neg_y_neighbors.rows()-1)][k_old+1] = 1;
                 }
-                else if (j == (chunk_bounds[1][1])) {
-                    for (int i=0; i<loc_buffer1.size(); i++) {loc_buffer1[i] = (*new_loc)[i];}
+                else if (k == (chunk_bounds[1][1])) {
+                    for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 3;
                     loc_buffer1[5] = i_old;
                     loc_buffer1[6] = j_old;
@@ -1186,10 +1190,10 @@ class Lattice {
                     new_proc = proc_neighbors[rank][0];
                     MPI_Isend(&loc_buffer3[0], bufferlen, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request3);
 
-                    proc_y_neighbors[1][j_old+1] = 1;
+                    proc_pos_y_neighbors[(int)(proc_neg_y_neighbors.rows()-1)][k_old+1] = 1;
                 }
                 else {
-                    for (int i=0; i<loc_buffer1.size(); i++) {loc_buffer1[i] = (*new_loc)[i];}
+                    for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 2;
                     loc_buffer1[5] = i_old;
                     loc_buffer1[6] = j_old;
@@ -1202,8 +1206,8 @@ class Lattice {
 
                 return true;
             }
-            else if (j == -1) {/*communicate with proc to -y direction*/ 
-                for (int i=0; i<loc_buffer1.size(); i++) {loc_buffer1[i] = (*new_loc)[i];}
+            else if (k == -1) {/*communicate with proc to -y direction*/ 
+                for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                 loc_buffer1[4] = 1;
                 loc_buffer1[5] = i_old;
                 loc_buffer1[6] = j_old;
@@ -1213,8 +1217,8 @@ class Lattice {
                 MPI_Isend(&loc_buffer1[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request1);
                 return true;
             }
-            else if (j == (chunk_bounds[1][1])) {/*communicate with proc to +y direction*/
-                for (int i=0; i<loc_buffer1.size(); i++) {loc_buffer1[i] = (*new_loc)[i];}
+            else if (k == (chunk_bounds[1][1])) {/*communicate with proc to +y direction*/
+                for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                 loc_buffer1[4] = 3;
                 loc_buffer1[5] = i_old;
                 loc_buffer1[6] = j_old;
@@ -1225,10 +1229,10 @@ class Lattice {
                 return true;
             }
 
-            if (side_idx == 0) { proc_x_neighbors[1][j+1] = 1; }
-            else if (side_idx == 1) { proc_y_neighbors[1][j+1] = 1; }
-            else if (side_idx == 2) { proc_x_neighbors[0][j+1] = 1; }
-            else { proc_y_neighbors[0][j+1] = 1; }
+            if (side_idx == 0) { proc_pos_x_neighbors[k+1][l+1] = 1; }
+            else if (side_idx == 1) { proc_pos_y_neighbors[j+1][l+1] = 1; }
+            else if (side_idx == 2) { proc_neg_x_neighbors[k+1][l+1] = 1; }
+            else { proc_neg_y_neighbors[j+1][l+1] = 1; }
 
             return false;
         }
@@ -1497,25 +1501,25 @@ class Lattice {
             int l = (((*new_loc_buffer)[3] % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
 
             if ((j_old == (lattice_dim[0]-1)) && (k_old == (lattice_dim[1]-1))) {
-                proc_x_neighbors[0][0] = 1;
-                proc_y_neighbors[0][0] = 1;
+                proc_neg_x_neighbors[0][k_old+1] = 1;
+                proc_neg_y_neighbors[0][k_old+1] = 1;
             }
             else if ((j_old == (lattice_dim[0]-1)) && (k_old == 0)) {
-                proc_x_neighbors[1][0] = 1;
-                proc_y_neighbors[0][k_old+1] = 1;
+                proc_pos_x_neighbors[0][k_old+1] = 1;
+                proc_neg_y_neighbors[lattice_dim[0]+2][k_old+1] = 1;
             }
             else if ((j_old == 0) && (k_old == (lattice_dim[1]-1))) {
-                proc_x_neighbors[0][j_old+1] = 1;
-                proc_y_neighbors[1][0] = 1;
+                proc_neg_x_neighbors[lattice_dim[1]+2][k_old+1] = 1;
+                proc_pos_y_neighbors[0][k_old+1] = 1;
             }
             else if ((j_old == 0) && (k_old == 0)) {
-                proc_x_neighbors[1][j_old+1] = 1;
-                proc_y_neighbors[1][k_old+1] = 1;
+                proc_pos_x_neighbors[lattice_dim[1]+2][k_old+1] = 1;
+                proc_pos_y_neighbors[lattice_dim[0]+2][k_old+1] = 1;
             }
-            else if (side_idx == 0) { proc_x_neighbors[1][k_old+1] = 1; }
-            else if (side_idx == 1) { proc_y_neighbors[1][j_old+1] = 1; }
-            else if (side_idx == 2) { proc_x_neighbors[0][k_old+1] = 1; }
-            else { proc_y_neighbors[0][j_old+1] = 1; }
+            else if (side_idx == 0) { proc_pos_x_neighbors[j_old+1][k_old+1] = 1; }
+            else if (side_idx == 1) { proc_pos_y_neighbors[i_old+1][k_old+1] = 1; }
+            else if (side_idx == 2) { proc_neg_x_neighbors[j_old+1][k_old+1] = 1; }
+            else                    { proc_neg_y_neighbors[i_old+1][k_old+1] = 1; }
 
             int rows = vacancies_pos.rows();
             int cols = vacancies_pos.cols();
@@ -1597,33 +1601,6 @@ class Lattice {
                     break;
                 }
                 
-                if ((t > (int)floor(time_lim/((double)3))) && (first_partition == false)) {
-                    only_vacancies = vacancies.nonzero();
-                    all_vacancies.push_back(only_vacancies);
-                    all_times.push_back(t);
-                    first_partition = true;
-                    std::cout << "t: " << t << "\n";
-                    print_1Dvector(move_counts);
-                }
-
-                else if ((t > 10000) && (ten_k_partition == false)) {
-                    only_vacancies = vacancies.nonzero();
-                    all_vacancies.push_back(only_vacancies);
-                    all_times.push_back(t);
-                    ten_k_partition = true;
-                    std::cout << "t: " << t << "\n";
-                    print_1Dvector(move_counts);
-                }
-                
-                else if (((t > (int)floor((double)2*time_lim/((double)3))) && (sec_partition == false)) || (t >= time_lim)) {
-                    only_vacancies = vacancies.nonzero();
-                    all_vacancies.push_back(only_vacancies);
-                    all_times.push_back(t);
-                    sec_partition = true;
-                    std::cout << "t: " << t << "\n";
-                    print_1Dvector(move_counts);
-                }
-
                 int test_flag;
                 MPI_Status status;
                 MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test_flag, &status);
@@ -1639,6 +1616,7 @@ class Lattice {
                 parallel_get_actions();
 
                 // writing output files every 500 timesteps
+                /*
                 if (move_ticks % 500 == 0) {
                     only_vacancies = vacancies.nonzero();
                     ss << "1024_vacancies/" << folder << "/vacs/vacancies_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt";
@@ -1667,10 +1645,10 @@ class Lattice {
                         out_file.close();
                     }
                 }
+                */
             }
 
             std::cout << "t: " << t << "\n";
-            print_1Dvector(move_counts);
 
             only_vacancies = vacancies.nonzero();
             all_vacancies.push_back(only_vacancies);
@@ -2338,6 +2316,11 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
     FourDBoolArr* temp_vertex_sites = new FourDBoolArr(1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
     FourDBoolArr* temp_bc_sites = new FourDBoolArr(1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
 
+    Matrix<int>* temp_proc_neg_x_neighbors = new Matrix<int>((size_t)(dims_int[1]+1), (size_t)(dims_int[2]+1));
+    Matrix<int>* temp_proc_neg_y_neighbors = new Matrix<int>((size_t)(dims_int[0]+1), (size_t)(dims_int[2]+1));
+    Matrix<int>* temp_proc_pos_x_neighbors = new Matrix<int>((size_t)(dims_int[1]+1), (size_t)(dims_int[2]+1));
+    Matrix<int>* temp_proc_pos_y_neighbors = new Matrix<int>((size_t)(dims_int[0]+1), (size_t)(dims_int[2]+1));
+
     std::tuple<size_t, size_t, size_t, size_t> vacs_size_tuple = (*temp_vacancies).size_tuple;
 
 
@@ -2356,51 +2339,89 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
             }
         }
     }
-    
+
+    int xhi; int xlo; int yhi; int ylo; int zhi; int zlo;
     for (int i=read_idx; i<(int)lines.size(); i++){
         //std::cout << lines[i] << "\n";
         line_struct tuple_out = parse_line(lines[i]);
         lattice_pos = tuple_out.get_latice_pos(); x = tuple_out.get_x(); y = tuple_out.get_y(); 
         z = tuple_out.get_z(); atomtype = tuple_out.get_atype();
         atomtype = (int)(atomtype);
-        if ( (x <= chunk_bounds[0][1]) && (x >= chunk_bounds[0][0]) && 
-            (y <= chunk_bounds[1][1]) && (y >= chunk_bounds[1][0]) &&
-            (z <= chunk_bounds[2][1]) && (z >= chunk_bounds[2][0]) ) {
-                if (lattice_pos == "v") {
-                    //std::cout << "lattice position v " << "\n";
+        
+        xlo = (((chunk_bounds[0][1]-1) % dims_int[0] - dims_int[0]) % dims_int[0]);
+        xhi = (((chunk_bounds[0][1]+1) % dims_int[0] + dims_int[0]) % dims_int[0]);
+        ylo = (((chunk_bounds[1][0]-1) % dims_int[1] + dims_int[1]) % dims_int[1]);
+        yhi = (((chunk_bounds[1][1]+1) % dims_int[1] + dims_int[1]) % dims_int[1]);
+        zlo = (((chunk_bounds[2][0]-1) % dims_int[2] + dims_int[2]) % dims_int[2]);
+        zhi = (((chunk_bounds[2][1]+1) % dims_int[2] + dims_int[2]) % dims_int[2]);
+
+        if ( (x > xlo) && (x < xhi) && 
+            (y > ylo) && (y < yhi) &&
+            (z > zlo) && (z < zhi) ) {
+                if ( (x == xlo) || (x == xhi) || (y == ylo) || (y == yhi) || (z == zlo) || (z == zhi) ) {
                     x = (int)x;
                     y = (int)y;
-                    z = (int)z;
-                    //std::cout << "x: " << x << " y: " << y << " z: " << z << "\n" ;
-                    if (atomtype == 0) {
-                        (*temp_vertex_sites)(0,x,y,z) = 0;
-                        (*temp_vacancies)(0,x,y,z) = 1;
-                        vacancies_count ++;
+                    z = (int)z;                            
+
+                    if ((x == xlo) && (lattice_pos == "bc")) {                        
+                        if (atomtype == 1) {
+                            (*temp_proc_neg_x_neighbors)(y,z) = 1;
+                        }      
                     }
-                    else if (atomtype == 1) {
-                        (*temp_vertex_sites)(0,x,y,z) = 1;
-                    }      
-                    else {
-                        printf("Unrecognized atom type");
-                        throw std::exception();
+                    else if ((y == ylo) && (lattice_pos == "bc")) {                        
+                        if (atomtype == 1) {
+                            (*temp_proc_neg_y_neighbors)(x,z) = 1;
+                        }      
+                    }
+                    else if ((x == xhi) && (lattice_pos == "v")) {                        
+                        if (atomtype == 1) {
+                            (*temp_proc_pos_x_neighbors)(y,z) = 1;
+                        }      
+                    }
+                    else if ((y == yhi)&& (lattice_pos == "v")) {                        
+                        if (atomtype == 1) {
+                            (*temp_proc_pos_y_neighbors)(x,z) = 1;
+                        }      
                     }
                 }
-                else {
-                    x = (int)(x - 0.5);
-                    y = (int)(y - 0.5);
-                    z = (int)(z - 0.5);
 
-                    if (atomtype == 0) {
-                        (*temp_bc_sites)(0,x,y,z) = 0;
-                        (*temp_vacancies)(1,x,y,z) = 1; 
-                        vacancies_count ++;
-                    } 
-                    else if (atomtype == 1) {
-                        (*temp_bc_sites)(0,x,y,z) = 1;
-                    } 
+                else {        
+                    if (lattice_pos == "v") {
+                        //std::cout << "lattice position v " << "\n";
+                        x = (int)x;
+                        y = (int)y;
+                        z = (int)z;
+                        //std::cout << "x: " << x << " y: " << y << " z: " << z << "\n" ;
+                        if (atomtype == 0) {
+                            (*temp_vertex_sites)(0,x,y,z) = 0;
+                            (*temp_vacancies)(0,x,y,z) = 1;
+                            vacancies_count ++;
+                        }
+                        else if (atomtype == 1) {
+                            (*temp_vertex_sites)(0,x,y,z) = 1;
+                        }      
+                        else {
+                            printf("Unrecognized atom type");
+                            throw std::exception();
+                        }
+                    }
                     else {
-                        printf("Unrecognized atom type");
-                        throw std::exception();
+                        x = (int)(x - 0.5);
+                        y = (int)(y - 0.5);
+                        z = (int)(z - 0.5);
+
+                        if (atomtype == 0) {
+                            (*temp_bc_sites)(0,x,y,z) = 0;
+                            (*temp_vacancies)(1,x,y,z) = 1; 
+                            vacancies_count ++;
+                        } 
+                        else if (atomtype == 1) {
+                            (*temp_bc_sites)(0,x,y,z) = 1;
+                        } 
+                        else {
+                            printf("Unrecognized atom type");
+                            throw std::exception();
+                        }
                     }
                 }
             }
@@ -2533,6 +2554,24 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
                     new_lattice->vacancies(i,j,k,l) = (*temp_vacancies)(i,j,k,l);
                 }
             }
+        }
+    }
+
+    int xlen = (int)(chunk_bounds[0][1] - chunk_bounds[0][0] + 2);
+    int ylen = (int)(chunk_bounds[1][1] - chunk_bounds[1][0] + 2);
+    int zlen = (int)(chunk_bounds[2][1] - chunk_bounds[2][0] + 2);
+
+    for (size_t j=0; j<(size_t)ylen; j++) {
+        for (size_t k=0; k<(size_t)zlen; k++) {
+            new_lattice->proc_neg_x_neighbors(j,k) = (*temp_proc_neg_x_neighbors)(j,k);
+            new_lattice->proc_pos_x_neighbors(j,k) = (*temp_proc_pos_x_neighbors)(j,k);
+        }
+    }
+    
+    for (size_t j=0; j<(size_t)xlen; j++) {
+        for (size_t k=0; k<(size_t)zlen; k++) {
+            new_lattice->proc_neg_y_neighbors(j,k) = (*temp_proc_neg_y_neighbors)(j,k);
+            new_lattice->proc_pos_y_neighbors(j,k) = (*temp_proc_pos_y_neighbors)(j,k);
         }
     }
 

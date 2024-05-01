@@ -6,49 +6,6 @@
 #include <cstdlib>
 #include <fstream>
 
-struct lattice_return_struct {
-    public:
-        /*! \brief Constructor
-        */
-
-        lattice_return_struct(std::vector< std::vector< std::vector<int> > > all_vacancies,
-        std::vector<int> move_counts, 
-        std::vector<double> time_count, 
-        std::vector<double> all_times):
-            all_vacancies_(all_vacancies),
-            move_counts_(move_counts),
-            time_count_(time_count),
-            all_times_(all_times)
-            {}
-
-        /*! \return get x field of struc */
-        std::vector< std::vector< std::vector<int> > > get_all_vacancies() const {
-            return all_vacancies_;
-        }
-
-        /*! \return get y field of struc */
-        std::vector<int> get_move_counts() const {
-            return move_counts_;
-        }
-
-        /*! \return get z field of struc */
-        std::vector<double> get_time_count() const {
-            return time_count_;
-        }
-
-        /*! \return get z field of struc */
-        std::vector<double> get_all_times() const {
-            return all_times_;
-        }
-        
-    private:
-        std::vector< std::vector< std::vector<int> > > all_vacancies_; 
-        std::vector<int> move_counts_; 
-        std::vector<double> time_count_; 
-        std::vector<double> all_times_;
-};
-
-typedef struct lattice_return_struct lattice_return_struct;
 
 std::vector< std::vector<int> > vect_create_2D(size_t N, size_t M) {
     std::vector< std::vector<int> > vec_out(N);
@@ -152,13 +109,11 @@ std::vector<double> create_vec_1D_float(int size) {
 }
 
 std::vector<double> slice_1Dvec_float(std::vector<double> vec, int i1_start, int i1_end) {
-    int size1 = i1_end - i1_start;
-    std::vector<double> slice(size1);
-
-    for (int i=i1_start; i<i1_end; i++) { 
-        slice[i] = vec[i];
+    int size = i1_end - i1_start;
+    for (int i=0; i<size; i++) { 
+        vec[i] = vec[i+i1_start];
     }
-    return slice;
+    return vec;
 }
 
 std::vector<std::string> slice_1Dvec_str(std::vector<std::string> vec, int i1_start, int i1_end) {

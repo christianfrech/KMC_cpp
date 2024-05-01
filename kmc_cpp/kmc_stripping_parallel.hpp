@@ -26,15 +26,7 @@
 
 
 #define CEILING(x,y) ((x + y - 1) / y)
-/*
-std::tuple< int, std::vector<Region*>, FourDArr* >
 
-
-std::tuple< std::vector< std::vector<int> >, 
-std::vector< std::vector< std::vector<double> > >, 
-std::vector< std::vector< std::vector< std::vector<double> > > > ,
-int > 
-*/
 
  /*! \brief A class for storing data (rate constants) corresponding to a subset of coordinates in a FourDArr object*/
 class Region {
@@ -63,271 +55,6 @@ class Region {
                 upperbound = params[1];
             }
         }
-};
-
-class FourDBoolArr {
-    size_t len1_, len2_, len3_, len4_;
-    std::vector<uint8_t> data_;
-    
-    class BoolReference
-    {
-    private:
-        uint8_t & value_;
-        uint8_t mask_;
-        
-        void zero(void) noexcept { value_ &= ~(mask_); }
-        
-        void one(void) noexcept { value_ |= (mask_); }
-        
-        bool get() const noexcept { return !!(value_ & mask_); }
-        
-        void set(bool b) noexcept
-        {
-            if(b)
-                one();
-            else
-                zero();
-        }
-        
-    public:
-        BoolReference(uint8_t & value, uint8_t nbit)
-        : value_(value), mask_(uint8_t(0x1) << nbit)
-        { }
-
-        BoolReference(const BoolReference &ref): value_(ref.value_), mask_(ref.mask_) {}
-        
-        BoolReference & operator=(bool b) noexcept { set(b); return *this; }
-        
-        BoolReference & operator=(const BoolReference & br) noexcept { return *this = bool(br); }
-        
-        operator bool() const noexcept { return get(); }
-        };
-    
-public:
-    const std::tuple<size_t, size_t, size_t, size_t> size_tuple;
-
-    FourDBoolArr(size_t len1, size_t len2, size_t len3, size_t len4) :
-    len1_(len1), len2_(len2), len3_(len3), len4_(len4), data_(CEILING(len1 * len2 * len3 * len4, 8)), size_tuple(len1, len2, len3, len4) { }
-    
-    BoolReference operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
-        size_t flat_idx = i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4;
-        size_t coarse_idx = flat_idx / 8;
-        size_t fine_idx = flat_idx % 8;
-        BoolReference ref(data_[coarse_idx], fine_idx);
-        return ref;
-    }
-
-    /*
-    print elements of data field
-    */
-    void print_4Dvector() { 
-        std::cout << "\n[ ";
-        for (int i1=0; i1<(int)len1_; i1++) {
-            std::cout << "[ ";
-            for (int i2=0; i2<(int)len2_; i2++) {
-                std::cout << "[ ";
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    std::cout << "[ ";
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
-                    }
-                    std::cout << "] ";
-                    std::cout << "\n  ";
-                }
-                std::cout << "] ";
-                std::cout << "\n  ";
-            }
-            std::cout << "] ";
-            std::cout << "\n  ";
-        } 
-        std::cout << "] \n\n";
-    }
-    
-    /*
-    retrieve nonzero elements
-    */
-    std::vector< std::vector<int> > nonzero() {
-        int vec_size = (len1_*len2_*len3_*len4_)/8;
-        std::vector<std::vector<int>> vec_out(vec_size, std::vector<int>(4));
-
-        int elem = 0; 
-        for (int i1=0; i1<(int)len1_; i1++) {
-            for (int i2=0; i2<(int)len2_; i2++) {
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
-                            
-                            if (elem >= (vec_size-1)) {
-                                vec_out.resize(vec_size*2, std::vector<int>(4));
-                                vec_size = vec_size * 2;
-                            }
-                            
-                            vec_out[elem][0] = i1;
-                            vec_out[elem][1] = i2;
-                            vec_out[elem][2] = i3;
-                            vec_out[elem][3] = i4;
-                            elem ++;
-                        }
-                    }
-                }
-            }
-        } 
-        vec_out.resize(elem);
-        
-        return vec_out;
-    }
-};
-
-/*! \brief A class for storing 4-D arrays of ints*/
-class FourDArr {
-public:
-    /*! \brief Constructor
-     * \param [in] len1 len2 len3 len4    Lengths of the 4 dimensions of the array
-     */
-
-    const std::tuple<size_t, size_t, size_t, size_t> size_tuple;
-
-    FourDArr(size_t len1, size_t len2, size_t len3, size_t len4)
-    : size_tuple(len1, len2, len3, len4)
-    , len1_(len1)
-    , len2_(len2)
-    , len3_(len3)
-    , len4_(len4)
-    {
-        data_ = (int *)malloc(sizeof(int) * len1 * len2 * len3 * len4);
-    }
-    
-    /*! \brief Access an element of the 4-D array
-     * \param [in] i1 First index
-     * \param [in] i2 Second index
-     * \param [in] i3 Third index
-     * \param [in] i4 Fourth index
-     * \returns Reference to array element
-     */
-    int& operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
-        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
-    }
-    
-    int  operator() (size_t i1, size_t i2, size_t i3, size_t i4) const {
-        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
-    }
-
-    /*! \brief Destructor*/
-    ~FourDArr() {
-        free(data_);
-    }
-    
-    FourDArr(const FourDArr& m) = delete;
-    
-    FourDArr& operator= (const FourDArr& m) = delete;
-    
-    /*! \returns pointer to 0th element in the array */
-    int *data() {
-        return data_;
-    }
-    /*
-    retrieve nonzero elements
-    */
-    std::vector< std::vector<int> > nonzero() {
-        int vec_size = (len1_*len2_*len3_*len4_)/8;
-        std::vector<std::vector<int>> vec_out(vec_size, std::vector<int>(4));
-
-        int elem = 0; 
-        for (int i1=0; i1<(int)len1_; i1++) {
-            for (int i2=0; i2<(int)len2_; i2++) {
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) !=0 ) {
-
-                            if (elem == (vec_size-2)) {
-                                vec_out.resize(vec_size*2, std::vector<int>(4));
-                                vec_size = vec_size * 2;
-                            }
-                            vec_out[elem][0] = i1;
-                            vec_out[elem][1] = i2;
-                            vec_out[elem][2] = i3;
-                            vec_out[elem][3] = i4;
-                            
-                            elem ++;
-                        }
-                    }
-                }
-            }
-        } 
-        vec_out.resize(elem);
-        
-        return vec_out;
-    }
-
-    /*
-    print data field of a FourDArr object
-    */
-    void print_4Dvector() { 
-        std::cout << "\n[ ";
-        for (int i1=0; i1<(int)len1_; i1++) {
-            std::cout << "[ ";
-            for (int i2=0; i2<(int)len2_; i2++) {
-                std::cout << "[ ";
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    std::cout << "[ ";
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
-                    }
-                    std::cout << "] ";
-                    std::cout << "\n  ";
-                }
-                std::cout << "] ";
-                std::cout << "\n  ";
-            }
-            std::cout << "] ";
-            std::cout << "\n  ";
-        } 
-        std::cout << "] \n\n";
-    }
-
-    /*
-    retrieve elements to a 1D slice of a FourDArr object corresponding to coordinates input
-    */
-    std::vector<int> grab_idxs(std::vector< std::vector<int> > coords) {
-        std::vector<int> output;
-
-        for (int i=0; i<(int)coords.size(); i++) {
-            std::vector<int> coord = coords[i];
-            int w = coord[0];
-            int x = coord[1];
-            int y = coord[2];
-            int z = coord[3];
-
-            int value = (int)(*this)(w,x,y,z);
-            output.push_back(value);
-        }
-        return output;
-    }
-
-    /*
-    assign elements to a 1D slice of a FourDArr object corresponding to values input
-    */
-    void assign_idxs(std::vector< std::vector<int> > coords, std::vector<int> values) {
-        size_t w;
-        size_t x;
-        size_t y;
-        size_t z;
-        
-        
-
-        for (int i=0; i<(int)coords.size(); i++) {
-            std::vector<int> coord = coords[i];
-            w = (size_t)coord[0];
-            x = (size_t)coord[1];
-            y = (size_t)coord[2];
-            z = (size_t)coord[3];
-            (*this)(w,x,y,z) = values[i];
-        }
-    }
-
-private:
-    size_t len1_, len2_, len3_, len4_; ///< Dimensions of the array
-    int* data_; ///< The data stored in the array
 };
 
 /*! \brief A class for representing and manipulating matrices with variable dimension sizes
@@ -506,6 +233,337 @@ private:
     std::vector<mat_type> data_;
 };
 
+/*! \brief A class for storing 4-D arrays of ints*/
+class FourDArr {
+public:
+    /*! \brief Constructor
+     * \param [in] len1 len2 len3 len4    Lengths of the 4 dimensions of the array
+     */
+
+    const std::tuple<size_t, size_t, size_t, size_t> size_tuple;
+
+    FourDArr(size_t len1, size_t len2, size_t len3, size_t len4)
+    : size_tuple(len1, len2, len3, len4)
+    , len1_(len1)
+    , len2_(len2)
+    , len3_(len3)
+    , len4_(len4)
+    {
+        data_ = (int *)malloc(sizeof(int) * len1 * len2 * len3 * len4);
+    }
+    
+    /*! \brief Access an element of the 4-D array
+     * \param [in] i1 First index
+     * \param [in] i2 Second index
+     * \param [in] i3 Third index
+     * \param [in] i4 Fourth index
+     * \returns Reference to array element
+     */
+    int& operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
+        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
+    }
+    
+    int  operator() (size_t i1, size_t i2, size_t i3, size_t i4) const {
+        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
+    }
+
+    /*! \brief Destructor*/
+    ~FourDArr() {
+        free(data_);
+    }
+    
+    FourDArr(const FourDArr& m) = delete;
+    
+    FourDArr& operator= (const FourDArr& m) = delete;
+    
+    /*! \returns pointer to 0th element in the array */
+    int *data() {
+        return data_;
+    }
+    /*
+    retrieve nonzero elements
+    */
+    Matrix<int>* nonzero() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        std::cout << "nonzero \n"; 
+        Matrix<int>* mat_out = new Matrix<int>(vec_size, 4);
+
+        int elem = 0; 
+        std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n"; 
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
+                            
+                            if (elem >= (vec_size-1)) {
+                                mat_out->reshape(vec_size*2, 4);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            (*mat_out)[elem][0] = i1;
+                            (*mat_out)[elem][1] = i2;
+                            (*mat_out)[elem][2] = i3;
+                            (*mat_out)[elem][3] = i4;
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        } 
+        mat_out->reshape(elem, 4);
+        
+        return mat_out;
+    }
+
+    /*
+    print data field of a FourDArr object
+    */
+    void print_4Dvector() { 
+        std::cout << "\n[ ";
+        for (int i1=0; i1<(int)len1_; i1++) {
+            std::cout << "[ ";
+            for (int i2=0; i2<(int)len2_; i2++) {
+                std::cout << "[ ";
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    std::cout << "[ ";
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
+                    }
+                    std::cout << "] ";
+                    std::cout << "\n  ";
+                }
+                std::cout << "] ";
+                std::cout << "\n  ";
+            }
+            std::cout << "] ";
+            std::cout << "\n  ";
+        } 
+        std::cout << "] \n\n";
+    }
+
+    /*
+    retrieve elements to a 1D slice of a FourDArr object corresponding to coordinates input
+    */
+    std::vector<int> grab_idxs(std::vector< std::vector<int> > coords) {
+        std::vector<int> output;
+
+        for (int i=0; i<(int)coords.size(); i++) {
+            std::vector<int> coord = coords[i];
+            int w = coord[0];
+            int x = coord[1];
+            int y = coord[2];
+            int z = coord[3];
+
+            int value = (int)(*this)(w,x,y,z);
+            output.push_back(value);
+        }
+        return output;
+    }
+
+    /*
+    assign elements to a 1D slice of a FourDArr object corresponding to values input
+    */
+    void assign_idxs(std::vector< std::vector<int> > coords, std::vector<int> values) {
+        size_t w;
+        size_t x;
+        size_t y;
+        size_t z;
+        
+        
+
+        for (int i=0; i<(int)coords.size(); i++) {
+            std::vector<int> coord = coords[i];
+            w = (size_t)coord[0];
+            x = (size_t)coord[1];
+            y = (size_t)coord[2];
+            z = (size_t)coord[3];
+            (*this)(w,x,y,z) = values[i];
+        }
+    }
+
+private:
+    size_t len1_, len2_, len3_, len4_; ///< Dimensions of the array
+    int* data_; ///< The data stored in the array
+};
+
+class FourDBoolArr {
+    size_t len1_, len2_, len3_, len4_;
+    std::vector<uint8_t> data_;
+    
+    class BoolReference
+    {
+    private:
+        uint8_t & value_;
+        uint8_t mask_;
+        
+        void zero(void) noexcept { value_ &= ~(mask_); }
+        
+        void one(void) noexcept { value_ |= (mask_); }
+        
+        bool get() const noexcept { return !!(value_ & mask_); }
+        
+        void set(bool b) noexcept
+        {
+            if(b)
+                one();
+            else
+                zero();
+        }
+        
+    public:
+        BoolReference(uint8_t & value, uint8_t nbit)
+        : value_(value), mask_(uint8_t(0x1) << nbit)
+        { }
+
+        BoolReference(const BoolReference &ref): value_(ref.value_), mask_(ref.mask_) {}
+        
+        BoolReference & operator=(bool b) noexcept { set(b); return *this; }
+        
+        BoolReference & operator=(const BoolReference & br) noexcept { return *this = bool(br); }
+        
+        operator bool() const noexcept { return get(); }
+        };
+    
+public:
+    const std::tuple<size_t, size_t, size_t, size_t> size_tuple;
+
+    FourDBoolArr(size_t len1, size_t len2, size_t len3, size_t len4) :
+    len1_(len1), len2_(len2), len3_(len3), len4_(len4), data_(CEILING(len1 * len2 * len3 * len4, 8)), size_tuple(len1, len2, len3, len4) { }
+    
+    BoolReference operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
+        size_t flat_idx = i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4;
+        size_t coarse_idx = flat_idx / 8;
+        size_t fine_idx = flat_idx % 8;
+        BoolReference ref(data_[coarse_idx], fine_idx);
+        return ref;
+    }
+
+    /*
+    print elements of data field
+    */
+    void print_4Dvector() { 
+        std::cout << "\n[ ";
+        for (int i1=0; i1<(int)len1_; i1++) {
+            std::cout << "[ ";
+            for (int i2=0; i2<(int)len2_; i2++) {
+                std::cout << "[ ";
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    std::cout << "[ ";
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
+                    }
+                    std::cout << "] ";
+                    std::cout << "\n  ";
+                }
+                std::cout << "] ";
+                std::cout << "\n  ";
+            }
+            std::cout << "] ";
+            std::cout << "\n  ";
+        } 
+        std::cout << "] \n\n";
+    }
+    
+    /*
+    retrieve nonzero elements
+    */
+    /*
+    std::vector< std::vector<int> > nonzero() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        std::cout << "nonzero \n"; 
+        std::vector<std::vector<int>> vec_out(vec_size, std::vector<int>(4, 0));
+
+        int elem = 0; 
+        std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n"; 
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
+                            
+                            if (elem >= (vec_size-1)) {
+                                vec_out.resize(vec_size*2, std::vector<int>(4));
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            vec_out[elem][0] = i1;
+                            vec_out[elem][1] = i2;
+                            vec_out[elem][2] = i3;
+                            vec_out[elem][3] = i4;
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        } 
+        vec_out.resize(elem);
+        
+        return vec_out;
+    }
+    */
+
+
+    Matrix<int>* nonzero() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        std::cout << "nonzero \n"; 
+        Matrix<int>* mat_out = new Matrix<int>(vec_size, 4);
+
+        int elem = 0; 
+        std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n"; 
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
+                            
+                            if (elem >= (vec_size-1)) {
+                                mat_out->reshape(vec_size*2, 4);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            (*mat_out)[elem][0] = i1;
+                            (*mat_out)[elem][1] = i2;
+                            (*mat_out)[elem][2] = i3;
+                            (*mat_out)[elem][3] = i4;
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        } 
+        mat_out->reshape(elem, 4);
+        
+        return mat_out;
+    }
+
+};
+
+void write_to_file(std::string filename, Matrix<int>* values) {
+    std::ofstream out_file;
+    out_file.open(filename);
+    std::string s;
+
+    //std::cout << "writing \n";
+
+    if (out_file.is_open()) {
+        //std::cout << "file open \n";
+        for (int i=0; i<(int)values->rows(); i++) {
+            for (int j=0; j<(int)values->cols(); j++) {         
+                //s = std::to_string(values[i][j]);
+                out_file << values[i][j] << " ";
+            }
+        out_file << "\n";
+        }
+    }
+
+    out_file.close();
+    //std::cout << "closing \n";
+}
+
 
 struct add_reg_struct {
     public:
@@ -520,6 +578,8 @@ struct add_reg_struct {
             {
                 regions_ = regions;
                 region_sites_ = region_sites;
+                std::cout << "regions.size(): " << regions.size() << "\n";
+                std::cout << "regions_.size(): " << regions_.size() << "\n";
             }
 
         /*! \return get idx field of struc */
@@ -543,6 +603,49 @@ struct add_reg_struct {
  
 typedef struct add_reg_struct add_reg_struct;
 
+struct lattice_return_struct {
+    public:
+        /*! \brief Constructor
+        */
+
+        lattice_return_struct(std::vector< Matrix<int>* > all_vacancies,
+        std::vector<int> move_counts, 
+        std::vector<double> time_count, 
+        std::vector<double> all_times):
+            all_vacancies_(all_vacancies),
+            move_counts_(move_counts),
+            time_count_(time_count),
+            all_times_(all_times)
+            {}
+
+        /*! \return get x field of struc */
+        std::vector< Matrix<int>* > get_all_vacancies() const {
+            return all_vacancies_;
+        }
+
+        /*! \return get y field of struc */
+        std::vector<int> get_move_counts() const {
+            return move_counts_;
+        }
+
+        /*! \return get z field of struc */
+        std::vector<double> get_time_count() const {
+            return time_count_;
+        }
+
+        /*! \return get z field of struc */
+        std::vector<double> get_all_times() const {
+            return all_times_;
+        }
+        
+    private:
+        std::vector< Matrix<int>* > all_vacancies_; 
+        std::vector<int> move_counts_; 
+        std::vector<double> time_count_; 
+        std::vector<double> all_times_;
+};
+
+typedef struct lattice_return_struct lattice_return_struct;
 
 /*------------------------------------------------------------------------------------*/
  /*! \brief A class for storing a simulation cell of atoms and propogating moves around the 
@@ -608,27 +711,27 @@ class Lattice {
             vacancies((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             bc_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             region_sites((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
-            proc_neg_x_neighbors(y_neigh, zdim), 
-            proc_neg_y_neighbors(x_neigh, zdim),
-            proc_pos_x_neighbors(y_neigh, zdim), 
-            proc_pos_y_neighbors(x_neigh, zdim),  
-            proc_neighbors(num_procs, 8),
-            moves_coords((14 * num_vacancies), 4),
-            moves_shifts((14 * num_vacancies), 3),
-            moves_lattice((14 * num_vacancies), 1),
-            moves_vacs((14 * num_vacancies), 1),
-            ratecatalog_111(2, exp_int(2,8)),
-            ratecatalog_100(2, exp_int(2,14)),
-            regionrates_111_L(num_regions, exp_int(2,8)),
-            regionrates_111_R(num_regions, exp_int(2,8)),
-            regionrates_100_L(num_regions, exp_int(2,14)),
-            regionrates_100_R(num_regions, exp_int(2,14)),
-            configs_111(1, exp_int(2,8)),
-            configs_100(1, exp_int(2,14)),
-            vacancies_pos(num_vacancies, 4),
+            proc_neg_x_neighbors((size_t)y_neigh, (size_t)(zdim+2)), 
+            proc_neg_y_neighbors((size_t)x_neigh, (size_t)(zdim+2)),
+            proc_pos_x_neighbors((size_t)y_neigh, (size_t)(zdim+2)), 
+            proc_pos_y_neighbors((size_t)x_neigh, (size_t)(zdim+2)),  
+            proc_neighbors((size_t)num_procs, (size_t)8),
+            moves_coords((size_t)(14 * num_vacancies), 4),
+            moves_shifts((size_t)(14 * num_vacancies), 3),
+            moves_lattice((size_t)(14 * num_vacancies), 1),
+            moves_vacs((size_t)(14 * num_vacancies), 1),
+            ratecatalog_111(2, (size_t)exp_int(2,8)),
+            ratecatalog_100(2, (size_t)exp_int(2,14)),
+            regionrates_111_L((size_t)num_regions, (size_t)exp_int(2,8)),
+            regionrates_111_R((size_t)num_regions, (size_t)exp_int(2,8)),
+            regionrates_100_L((size_t)num_regions, (size_t)exp_int(2,14)),
+            regionrates_100_R((size_t)num_regions, (size_t)exp_int(2,14)),
+            configs_111(1, (size_t)exp_int(2,8)),
+            configs_100(1, (size_t)exp_int(2,14)),
+            vacancies_pos((size_t)num_vacancies, 4),
             mt_obj((unsigned int)(std::chrono::high_resolution_clock::now().time_since_epoch().count())),
-            x_rand(0, xdim),
-            y_rand(0, ydim)
+            x_rand(0, (size_t)xdim),
+            y_rand(0, (size_t)ydim)
 
             {
                 diag_directions = {{0,0,0}, {1,0,0}, {0,1,0}, {1,1,0}, {0,0,1}, {1,0,1}, {0,1,1}, {1,1,1}};
@@ -1555,8 +1658,8 @@ class Lattice {
             std::vector<double> time_count(4, 0); // time elapsed by each type of move
             int rand_idx; // index of move selected
             double timestep;
-            std::vector< std::vector<int> > only_vacancies; // configuration of vacancies at current timestep
-            std::vector< std::vector< std::vector<int> > > all_vacancies; // vector containing trajectory of vacancies
+            std::vector< Matrix<int>* > all_vacancies;
+            Matrix<int>* only_vacancies; // configuration of vacancies at current timestep
             std::vector<double> all_times; // vector containing trajectory of time elapsed by each type of move
             parallel_get_actions(); // updating list of moves in system
 
@@ -1564,8 +1667,6 @@ class Lattice {
             bool first_partition = false;
             bool sec_partition = false;
 
-            only_vacancies = vacancies.nonzero();
-            all_vacancies.push_back(only_vacancies); 
 
             int move_ticks = 0;
             double old_time;
@@ -1593,8 +1694,6 @@ class Lattice {
                 
                 // terminating simulation after real-time limit reached
                 if (elapsed_seconds.count() >= 172800) {
-                    only_vacancies = vacancies.nonzero();
-                    all_vacancies.push_back(only_vacancies);
                     t = time_lim + 1;
                     std::cout << "t: " << t << "\n";
                     print_1Dvector(move_counts);
@@ -1726,8 +1825,8 @@ ratecatalog_struct updated_create_ratecatalog(std::string catalogfile, std::vect
     //                                "northmost" atom, clockwise
     //...
     //line n: 
-
     std::fstream cat_file;
+
     cat_file.open(catalogfile);
     std::vector<std::string> lines;
     std::string line;
@@ -1743,8 +1842,11 @@ ratecatalog_struct updated_create_ratecatalog(std::string catalogfile, std::vect
 
     // getting atom types from line 0 ###
     std::string typeline = lines[0];
+
     std::vector<std::string> types = tokenizer(typeline, " ");
+
     types = slice_1Dvec_str_inp(types, 1, (int)types.size());
+
 
     std::string atype;
     std::vector<std::string> key_and_val;
@@ -1908,7 +2010,7 @@ ratecatalog_struct updated_create_ratecatalog(std::string catalogfile, std::vect
     for (int i=0; i<(int)lines.size(); i++) {
         
         configline = lines[i];
-        std::cout << "configline: " << configline << "\n";
+        //std::cout << "configline: " << configline << "\n";
 
         if (configline.find("stop regions") != std::string::npos) {
             lines.pop_back();
@@ -1962,7 +2064,9 @@ ratecatalog_struct updated_create_ratecatalog(std::string catalogfile, std::vect
         lines_read ++;
     }
 
+    
     ratecatalog_struct output_vals(all_configs, all_energies, regions_catalog, region_num);
+    
 
     return output_vals;
 }
@@ -2151,11 +2255,12 @@ std::vector<int> dims, int num_regions, std::string region_infile) {
         read_idx ++;
         curr_line = lines[read_idx];
     }
+
     std::string arbitrary_reigon;
     if (num_regions > (int)regions.size()) {
         std::cout << "adding regions\n";
 
-        for (int i=(int)regions.size(); i < num_regions; i++) {
+        for (int i=(int)regions.size(); i <= num_regions; i++) {
             
             arbitrary_reigon += std::to_string(i + (int)regions.size() + 1);
             arbitrary_reigon += ": BLOCK xmin:0 xmax:";
@@ -2180,15 +2285,13 @@ std::vector<int> dims, int num_regions, std::string region_infile) {
     if (region_infile.empty()) {
         std::cout << "draw_region: \n";
         draw_regions(temp_region_sites, regions, dims);
-        }
+    }
     else {
         std::cout << "custom_draw_region: \n";
         custom_draw_regions(temp_region_sites, regions, num_regions, dims, region_infile);
-        }
+    }
 
     add_reg_struct returnval(read_idx, regions, temp_region_sites);
-
-    //std::tuple< int, std::vector<Region*>, FourDArr* > tuple_out(read_idx, regions, temp_region_sites);
 
     return returnval;
 }
@@ -2202,9 +2305,12 @@ corresponding to initial configuration of simulation
 - creating rate catalog for bulk & pre-defined regions
 */
 Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, double vertex_rate, double edge_rate, 
-std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_bounds, int rank, std::vector<int> procs) {
+std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::vector<int>> chunk_bounds, int rank, std::vector<int> procs) {
+
     std::fstream in_file;
     in_file.open(infile_name);
+
+
     std::vector<std::string> lines;
     std::string line;
     std::string output;
@@ -2236,6 +2342,7 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
     for (int i=0; i<(int)dims_int.size(); i++) {
         dims_int[i] = std::stoi(dims_str[i+1]); 
     }
+
     //parsing through tokens except line label (this is why i=1)    
 
     // reading in geo type ###
@@ -2261,7 +2368,6 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
         a_type_keys.push_back(key);
     } 
 
-
     // gettiing num of regions
     int num_regions = 0;
     std::vector<std::string> num_regions_info;
@@ -2273,6 +2379,7 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
     else { 
         num_regions_info = tokenizer(lines[read_idx], " ");
         num_regions = std::stoi(num_regions_info[1]); 
+        std::cout << "num_regions: " << num_regions << "\n";
     }
 
     read_idx ++;
@@ -2283,6 +2390,8 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
     std::vector<Region*> temp_regions;
     FourDArr* temp_region_sites;
     int incriment;
+
+    std::cout << "start initializing regions\n";
 
     if (lines[read_idx].find(substring) != std::string::npos) {
         read_idx ++;
@@ -2312,14 +2421,15 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
     dims_int[1] = chunk_bounds[1][1] - chunk_bounds[1][0];
     dims_int[2] = chunk_bounds[2][1] - chunk_bounds[2][0];
 
+
     FourDBoolArr* temp_vacancies = new FourDBoolArr(2, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
     FourDBoolArr* temp_vertex_sites = new FourDBoolArr(1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
     FourDBoolArr* temp_bc_sites = new FourDBoolArr(1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
 
-    Matrix<int>* temp_proc_neg_x_neighbors = new Matrix<int>((size_t)(dims_int[1]+1), (size_t)(dims_int[2]+1));
-    Matrix<int>* temp_proc_neg_y_neighbors = new Matrix<int>((size_t)(dims_int[0]+1), (size_t)(dims_int[2]+1));
-    Matrix<int>* temp_proc_pos_x_neighbors = new Matrix<int>((size_t)(dims_int[1]+1), (size_t)(dims_int[2]+1));
-    Matrix<int>* temp_proc_pos_y_neighbors = new Matrix<int>((size_t)(dims_int[0]+1), (size_t)(dims_int[2]+1));
+    Matrix<int>* temp_proc_neg_x_neighbors = new Matrix<int>((size_t)(dims_int[1]+2), (size_t)(dims_int[2]+2));
+    Matrix<int>* temp_proc_neg_y_neighbors = new Matrix<int>((size_t)(dims_int[0]+2), (size_t)(dims_int[2]+2));
+    Matrix<int>* temp_proc_pos_x_neighbors = new Matrix<int>((size_t)(dims_int[1]+2), (size_t)(dims_int[2]+2));
+    Matrix<int>* temp_proc_pos_y_neighbors = new Matrix<int>((size_t)(dims_int[0]+2), (size_t)(dims_int[2]+2));
 
     std::tuple<size_t, size_t, size_t, size_t> vacs_size_tuple = (*temp_vacancies).size_tuple;
 
@@ -2340,7 +2450,20 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
         }
     }
 
-    int xhi; int xlo; int yhi; int ylo; int zhi; int zlo;
+
+    int xhi_edge; int xlo_edge; int yhi_edge; int ylo_edge; int zhi_edge; int zlo_edge;
+
+    xlo_edge = (((chunk_bounds[0][0]-1) % total_dims[0] + total_dims[0]) % total_dims[0]);
+    xhi_edge = (((chunk_bounds[0][1]+1) % total_dims[0] + total_dims[0]) % total_dims[0]);
+    ylo_edge = (((chunk_bounds[1][0]-1) % total_dims[1] + total_dims[1]) % total_dims[1]);
+    yhi_edge = (((chunk_bounds[1][1]+1) % total_dims[1] + total_dims[1]) % total_dims[1]);
+    zlo_edge = (((chunk_bounds[2][0]-1) % total_dims[2] + total_dims[2]) % total_dims[2]);
+    zhi_edge = (((chunk_bounds[2][1]+1) % total_dims[2] + total_dims[2]) % total_dims[2]);
+
+    print_2Dvector(chunk_bounds);
+    
+    std::cout << "\nxlo: " << chunk_bounds[0][0] << " xhi: " << chunk_bounds[0][1] << " ylo: " << chunk_bounds[1][0] << " yhi: " << chunk_bounds[1][1] << " zlo: " << chunk_bounds[2][0] << " zhi: " << chunk_bounds[2][1] << "\n";
+
     for (int i=read_idx; i<(int)lines.size(); i++){
         //std::cout << lines[i] << "\n";
         line_struct tuple_out = parse_line(lines[i]);
@@ -2348,86 +2471,76 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
         z = tuple_out.get_z(); atomtype = tuple_out.get_atype();
         atomtype = (int)(atomtype);
         
-        xlo = (((chunk_bounds[0][1]-1) % dims_int[0] - dims_int[0]) % dims_int[0]);
-        xhi = (((chunk_bounds[0][1]+1) % dims_int[0] + dims_int[0]) % dims_int[0]);
-        ylo = (((chunk_bounds[1][0]-1) % dims_int[1] + dims_int[1]) % dims_int[1]);
-        yhi = (((chunk_bounds[1][1]+1) % dims_int[1] + dims_int[1]) % dims_int[1]);
-        zlo = (((chunk_bounds[2][0]-1) % dims_int[2] + dims_int[2]) % dims_int[2]);
-        zhi = (((chunk_bounds[2][1]+1) % dims_int[2] + dims_int[2]) % dims_int[2]);
+        if ( (x == xlo_edge) || (x == xhi_edge) || (y == ylo_edge) || (y == yhi_edge) || (z == zlo_edge) || (z == zhi_edge) ) {
+            x = (int)x;
+            y = (int)y;
+            z = (int)z;                            
 
-        if ( (x > xlo) && (x < xhi) && 
-            (y > ylo) && (y < yhi) &&
-            (z > zlo) && (z < zhi) ) {
-                if ( (x == xlo) || (x == xhi) || (y == ylo) || (y == yhi) || (z == zlo) || (z == zhi) ) {
-                    x = (int)x;
-                    y = (int)y;
-                    z = (int)z;                            
+            if ((x == xlo_edge) && (lattice_pos == "bc")) {                        
+                if (atomtype == 1) {
+                    (*temp_proc_neg_x_neighbors)(y,z) = 1;
+                }      
+            }
+            else if ((y == ylo_edge) && (lattice_pos == "bc")) {                        
+                if (atomtype == 1) {
+                    (*temp_proc_neg_y_neighbors)(x,z) = 1;
+                }      
+            }
+            else if ((x == xhi_edge) && (lattice_pos == "v")) {                        
+                if (atomtype == 1) {
+                    (*temp_proc_pos_x_neighbors)(y,z) = 1;
+                }      
+            }
+            else if ((y == yhi_edge)&& (lattice_pos == "v")) {                        
+                if (atomtype == 1) {
+                    (*temp_proc_pos_y_neighbors)(x,z) = 1;
+                }      
+            }
+        }
+        else if ( (x >= chunk_bounds[0][0]) && (x <= chunk_bounds[0][1]) && 
+        (y >= chunk_bounds[1][0]) && (y <= chunk_bounds[1][1]) &&
+        (z >= chunk_bounds[2][0]) && (z <= chunk_bounds[2][1]) ) {
+            if (lattice_pos == "v") {
+                x = (int)x;
+                y = (int)y;
+                z = (int)z;
 
-                    if ((x == xlo) && (lattice_pos == "bc")) {                        
-                        if (atomtype == 1) {
-                            (*temp_proc_neg_x_neighbors)(y,z) = 1;
-                        }      
-                    }
-                    else if ((y == ylo) && (lattice_pos == "bc")) {                        
-                        if (atomtype == 1) {
-                            (*temp_proc_neg_y_neighbors)(x,z) = 1;
-                        }      
-                    }
-                    else if ((x == xhi) && (lattice_pos == "v")) {                        
-                        if (atomtype == 1) {
-                            (*temp_proc_pos_x_neighbors)(y,z) = 1;
-                        }      
-                    }
-                    else if ((y == yhi)&& (lattice_pos == "v")) {                        
-                        if (atomtype == 1) {
-                            (*temp_proc_pos_y_neighbors)(x,z) = 1;
-                        }      
-                    }
+                if (atomtype == 0) {
+                    //std::cout << "site x: " << x << " y: " << y << " z: " << z << "\n"; 
+                    (*temp_vertex_sites)(0,x,y,z) = 0;
+                    (*temp_vacancies)(0,x,y,z) = 1;
+                    vacancies_count ++;
                 }
-
-                else {        
-                    if (lattice_pos == "v") {
-                        //std::cout << "lattice position v " << "\n";
-                        x = (int)x;
-                        y = (int)y;
-                        z = (int)z;
-                        //std::cout << "x: " << x << " y: " << y << " z: " << z << "\n" ;
-                        if (atomtype == 0) {
-                            (*temp_vertex_sites)(0,x,y,z) = 0;
-                            (*temp_vacancies)(0,x,y,z) = 1;
-                            vacancies_count ++;
-                        }
-                        else if (atomtype == 1) {
-                            (*temp_vertex_sites)(0,x,y,z) = 1;
-                        }      
-                        else {
-                            printf("Unrecognized atom type");
-                            throw std::exception();
-                        }
-                    }
-                    else {
-                        x = (int)(x - 0.5);
-                        y = (int)(y - 0.5);
-                        z = (int)(z - 0.5);
-
-                        if (atomtype == 0) {
-                            (*temp_bc_sites)(0,x,y,z) = 0;
-                            (*temp_vacancies)(1,x,y,z) = 1; 
-                            vacancies_count ++;
-                        } 
-                        else if (atomtype == 1) {
-                            (*temp_bc_sites)(0,x,y,z) = 1;
-                        } 
-                        else {
-                            printf("Unrecognized atom type");
-                            throw std::exception();
-                        }
-                    }
+                else if (atomtype == 1) {
+                    //std::cout << "site x: " << x << " y: " << y << " z: " << z << "\n"; 
+                    (*temp_vertex_sites)(0,x,y,z) = 1;
+                }      
+                else {
+                    printf("Unrecognized atom type");
+                    throw std::exception();
                 }
             }
-            
+            else {
+                x = (int)(x - 0.5);
+                y = (int)(y - 0.5);
+                z = (int)(z - 0.5);
+
+                if (atomtype == 0) {
+                    (*temp_bc_sites)(0,x,y,z) = 0;
+                    (*temp_vacancies)(1,x,y,z) = 1; 
+                    vacancies_count ++;
+                } 
+                else if (atomtype == 1) {
+                    (*temp_bc_sites)(0,x,y,z) = 1;
+                } 
+                else {
+                    printf("Unrecognized atom type");
+                    throw std::exception();
+                }
+            }
+        }
     }
-    
+
     if (catalogfile_name != "None") {
         ratecatalog_struct cat_tuple = updated_create_ratecatalog(catalogfile_name, a_type_keys);
         std::vector< std::vector< std::vector<double> > > reg_energies = cat_tuple.get_energies();
@@ -2533,11 +2646,11 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
 
     // intialzing lattice, basis vectors, vacancies, mobile ions, and fixed //
     // atoms based upon dimensions //
-    std::cout << "reg_num: " << reg_num << "\n";
+    
     int num_x_neigh = (int)( dims_int[0]/procs[0] ) + 2;
     int num_y_neigh = (int)( dims_int[1]/procs[1] ) + 2;
 
-    Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, reg_num, nprocs, num_x_neigh, num_y_neigh);
+    Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, num_regions, nprocs, num_x_neigh, num_y_neigh);
 
     for (size_t i=0; i<2; i++) {
         for (size_t j=0; j<(size_t)dims_int[0]; j++) {
@@ -2557,9 +2670,11 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
         }
     }
 
-    int xlen = (int)(chunk_bounds[0][1] - chunk_bounds[0][0] + 2);
-    int ylen = (int)(chunk_bounds[1][1] - chunk_bounds[1][0] + 2);
-    int zlen = (int)(chunk_bounds[2][1] - chunk_bounds[2][0] + 2);
+    int xlen = (int)(*temp_proc_neg_x_neighbors).rows();
+    int ylen = (int)(*temp_proc_neg_y_neighbors).rows();
+    int zlen = (int)(*temp_proc_neg_x_neighbors).cols();
+
+    std::cout << "xlen: " << xlen << " ylen: " << ylen << " zlen: " << zlen << "\n";
 
     for (size_t j=0; j<(size_t)ylen; j++) {
         for (size_t k=0; k<(size_t)zlen; k++) {
@@ -2579,6 +2694,7 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
     new_lattice->configs_111 = configs_111;
     new_lattice->configs_100 = configs_100;
 
+
     size_t rows = new_lattice->ratecatalog_111.rows();
     size_t cols = new_lattice->ratecatalog_111.cols();
     for (size_t i=0; i<rows; i++) {
@@ -2587,6 +2703,7 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
         }
     }
     
+
     rows = new_lattice->ratecatalog_100.rows();
     cols = new_lattice->ratecatalog_100.cols();
     for (size_t i=0; i<rows; i++) {
@@ -2594,7 +2711,8 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
             new_lattice->ratecatalog_100(i,j) = (*temp_100_catalog)(i,j);
         }
     }
-
+    
+    
     rows = new_lattice->regionrates_100_L.rows();
     cols = new_lattice->regionrates_100_L.cols();
     for (size_t i=0; i<rows; i++) {
@@ -2604,7 +2722,6 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
         }
     }
 
-    std::cout << reg_num << "\n";
 
     rows = new_lattice->regionrates_111_L.rows();
     cols = new_lattice->regionrates_111_L.cols();
@@ -2618,22 +2735,36 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
         }
     }
 
-    new_lattice->probs = create_vec_1D_float(vacancies_count);
     new_lattice->rates = create_vec_1D_float(vacancies_count);
 
 
     for (int i=0; i<(int)a_type_values.size(); i++) {new_lattice->a_types[a_type_keys[i]] = a_type_values[i];}
 
+
     new_lattice->region_energies = reg_energies; 
+
+    std::cout << "new_lattice->region_energies assigned \n";
+    
     new_lattice->chunk_bounds = chunk_bounds;
 
-    std::vector< std::vector<int> > nonzero_vacs = new_lattice->vacancies.nonzero();
+    std::cout << "new_lattice->chunk_bounds assigned \n";
+    
+    //new_lattice->vacancies.print_4Dvector();
 
-    for (int i=0; i<nonzero_vacs.size(); i++) {
-        for (int j=0; j<nonzero_vacs[0].size(); j++) {
-            new_lattice->vacancies_pos[i][j] = nonzero_vacs[i][j];
+    std::cout << "\n";
+
+    Matrix<int>* nonzero_vacs = new_lattice->vacancies.nonzero();
+
+    std::cout << "new_lattice->vacancies.nonzero() \n";
+
+    for (int i=0; i<(int)(*nonzero_vacs).rows(); i++) {
+        for (int j=0; j<(int)(*nonzero_vacs).cols(); j++) {
+            new_lattice->vacancies_pos[i][j] = (*nonzero_vacs)[i][j];
         }
     }
+
+   
+    std::cout << "done with nonzero_vacs \n";
 
     delete temp_111_catalog;
     delete temp_100_catalog;
@@ -2641,9 +2772,22 @@ std::vector<std::vector<double>> reg_rates, std::vector<std::vector<int>> chunk_
     delete temp_vacancies;
     delete temp_vertex_sites;
     delete temp_bc_sites;
+    delete temp_proc_neg_x_neighbors;
+    delete temp_proc_neg_y_neighbors;
+    delete temp_proc_pos_x_neighbors;
+    delete temp_proc_pos_y_neighbors;
 
-    new_lattice->rate_cumsum.resize(14*nonzero_vacs.size());
 
+    std::cout << "most variables deleted \n";
+
+    new_lattice->rate_cumsum.resize(14*nonzero_vacs->rows());
+
+    std::cout << "resized \n";
+    delete nonzero_vacs;
+
+    std::cout << "exiting function  \n";
+
+    
     return new_lattice;
 }
 /*---------------------------------------------------------------------------*/

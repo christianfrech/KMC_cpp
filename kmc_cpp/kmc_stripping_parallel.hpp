@@ -127,7 +127,7 @@ public:
      * \param [in] n_keep       Number of elements to preserve in all rows of the matrix
      */
     void remove_row(size_t row) {
-        if ((row < rows_) && (row > 0)) {
+        if ((row < rows_) && (row >= 0)) {
             for (size_t row_idx = 0; row_idx < row; row_idx++) {
                 for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
                     (*this)(row_idx, col_idx) = (*this)(row_idx, col_idx);
@@ -141,7 +141,7 @@ public:
             reshape((rows_ - 1), cols_);
         }
         else {
-            std::cout << "ERROR: Attempted to remove row out of bounds for the matrix";
+            std::cout << "ERROR: Attempted to remove row out of bounds for the matrix - row " << row << "\n";
         }
     }
         
@@ -313,7 +313,6 @@ public:
             }
         } 
         mat_out->reshape(elem, 4);
-        
         return mat_out;
     }
 
@@ -424,7 +423,7 @@ class FourDBoolArr {
         BoolReference & operator=(const BoolReference & br) noexcept { return *this = bool(br); }
         
         operator bool() const noexcept { return get(); }
-        };
+    };
     
 public:
     const std::tuple<size_t, size_t, size_t, size_t> size_tuple;
@@ -508,11 +507,9 @@ public:
 
     Matrix<int>* nonzero() {
         int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
-        std::cout << "nonzero \n"; 
         Matrix<int>* mat_out = new Matrix<int>(vec_size, 4);
 
         int elem = 0; 
-        std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n"; 
         
         for (int i1=0; i1<(int)len1_; i1++) {
             for (int i2=0; i2<(int)len2_; i2++) {
@@ -696,7 +693,7 @@ class Lattice {
         Matrix<double> regionrates_100_R;
         Matrix<int> configs_111;
         Matrix<int> configs_100;
-        Matrix<int> vacancies_pos; 
+        Matrix<int> vacancies_pos;
         int num_of_moves;
         std::mt19937 mt_obj;
         std::uniform_int_distribution<std::mt19937::result_type> x_rand;
@@ -706,11 +703,12 @@ class Lattice {
         int num_of_vacs;
         std::vector< std::vector<int> > chunk_bounds;
 
-        Lattice(int xdim, int ydim, int zdim, int num_vacancies, int num_regions, int num_procs, int x_neigh, int y_neigh):
+        Lattice(int xdim, int ydim, int zdim, int num_vacancies, int num_regions, int number_procs, int x_neigh, int y_neigh):
             vertex_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             vacancies((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             bc_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             region_sites((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
+            num_procs((size_t)number_procs),
             proc_neg_x_neighbors((size_t)y_neigh, (size_t)(zdim+2)), 
             proc_neg_y_neighbors((size_t)x_neigh, (size_t)(zdim+2)),
             proc_pos_x_neighbors((size_t)y_neigh, (size_t)(zdim+2)), 
@@ -837,7 +835,7 @@ class Lattice {
                         }
                     }
                     
-                    else if ((i == 1) && (j == (chunk_bounds[0][1] - 1)) && (moves_shifts[idx][0] == 1)) {
+                    else if ((i == 1) && (j == (lattice_dim[0] - 1)) && (moves_shifts[idx][0] == 1)) {
                         if (k == 0) {
                             /*check neighbor +x,-y array */
                             if (!(proc_pos_x_neighbors[0][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
@@ -868,7 +866,7 @@ class Lattice {
                         //}
                     }
 
-                    else if ((i == 1) && (k == (chunk_bounds[1][1] - 1)) && (moves_shifts[idx][1] == 1)) {/*communicate with proc to +y direction*/
+                    else if ((i == 1) && (k == (lattice_dim[1] - 1)) && (moves_shifts[idx][1] == 1)) {/*communicate with proc to +y direction*/
                         if (k == 0) {
                             /*check neighbor -x,+y array */
                             if (!(proc_pos_y_neighbors[0][l+1])) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1);}
@@ -1132,8 +1130,10 @@ class Lattice {
             int k = (*new_loc)[2];
             int l = (*new_loc)[3];
 
-            if ((j == -1) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to -x direction*/
-                if (k == -1) {
+            if ((j == 0) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to -x direction*/
+                if ((k == 0) && (moves_shifts[idx][0] == 1)) {
+                    std::cout << "communicate with proc to (-x,-y) direction \n\n";
+
                     for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 1;
                     loc_buffer1[5] = i_old;
@@ -1174,7 +1174,9 @@ class Lattice {
 
                     proc_neg_y_neighbors[0][l_old+1] = 1;
                 }
-                else if (k == (chunk_bounds[1][1])) { 
+                else if ((k == (lattice_dim[1] - 1)) && (moves_shifts[idx][1] == -1)) { 
+                    std::cout << "communicate with proc to (-x,+y) direction \n\n";
+                    
                     loc_buffer1[4] = 0;
                     loc_buffer1[5] = i_old;
                     loc_buffer1[6] = j_old;
@@ -1205,6 +1207,7 @@ class Lattice {
                     proc_pos_y_neighbors[0][k_old+1] = 1;
                 }
                 else {
+                    std::cout << "communicate with proc to (-x) direction \n\n";
                     for (int i=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 0;
                     loc_buffer1[5] = i_old;
@@ -1218,8 +1221,9 @@ class Lattice {
 
                 return true;
             }
-            else if ((j == (chunk_bounds[0][1])) && (moves_shifts[idx][0] == 1)) {/*communicate with proc to +x direction*/
-                if (k == -1) {
+            else if ((j == (lattice_dim[0] - 1)) && (moves_shifts[idx][0] == -1)) {/*communicate with proc to +x direction*/
+                if ((k == 0) && (moves_shifts[idx][0] == 1)) {
+                    std::cout << "communicate with proc to (+x,-y) direction \n\n";
                     for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 2;
                     loc_buffer1[5] = i_old;
@@ -1258,7 +1262,8 @@ class Lattice {
 
                     proc_neg_y_neighbors[(int)(proc_neg_y_neighbors.rows()-1)][k_old+1] = 1;
                 }
-                else if (k == (chunk_bounds[1][1])) {
+                else if (((k == (lattice_dim[1] - 1)) && (moves_shifts[idx][1] == -1))) {
+                    std::cout << "communicate with proc to (+x,+y) direction \n\n";
                     for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 3;
                     loc_buffer1[5] = i_old;
@@ -1296,6 +1301,7 @@ class Lattice {
                     proc_pos_y_neighbors[(int)(proc_neg_y_neighbors.rows()-1)][k_old+1] = 1;
                 }
                 else {
+                    std::cout << "communicate with proc to (+x) direction \n\n";
                     for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                     loc_buffer1[4] = 2;
                     loc_buffer1[5] = i_old;
@@ -1309,7 +1315,10 @@ class Lattice {
 
                 return true;
             }
-            else if (k == -1) {/*communicate with proc to -y direction*/ 
+            else if ((k == 0) && (moves_shifts[idx][1] == 1)) {
+                std::cout << "communicate with proc to (-y) direction \n\n";
+                
+                /*communicate with proc to -y direction*/ 
                 for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                 loc_buffer1[4] = 1;
                 loc_buffer1[5] = i_old;
@@ -1320,7 +1329,10 @@ class Lattice {
                 MPI_Isend(&loc_buffer1[0], 4, MPI_INT, new_proc, 1, MPI_COMM_WORLD, &request1);
                 return true;
             }
-            else if (k == (chunk_bounds[1][1])) {/*communicate with proc to +y direction*/
+            else if ((k == (lattice_dim[1] - 1)) && (moves_shifts[idx][1] == -1)) {
+                std::cout << "communicate with proc to (+y) direction \n\n";
+                
+                /*communicate with proc to +y direction*/
                 for (int idx=0; idx<loc_buffer1.size(); idx++) {loc_buffer1[idx] = (*new_loc)[idx];}
                 loc_buffer1[4] = 3;
                 loc_buffer1[5] = i_old;
@@ -1518,6 +1530,8 @@ class Lattice {
             int last_idx = (int)cumsum.size() - 1;
             double time = ((-1/ cumsum[last_idx]) * log(random_double));
 
+            //std::cout << "random_double: " << random_double << " cumsum[last_idx]: " << cumsum[last_idx] << " time: " << time << "\n";
+
             return time;
         }
 
@@ -1526,40 +1540,28 @@ class Lattice {
         corresponding to difference between Rtot_i and Rmax
         */
         void communicate_rates() {
-            double max_i_rate;
+            double max_i_rate = 0;
             int max_rate_idx;
             double max_rate;
             std::vector<double> max_rates(num_procs);
             MPI_Request request;
             int end_idx;
-
+            max_i_rate = rate_cumsum[rate_cumsum.size()-1];
+            MPI_Barrier(MPI_COMM_WORLD);
+            MPI_Gather(&max_i_rate, 1, MPI_DOUBLE, max_rates.data(), 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
             if (rank == 0) {
-                max_rates[rank] = rate_cumsum[-1];
-                for (int i=1; i<num_procs; i++) {
-                    MPI_Irecv(&max_i_rate, 1, MPI_DOUBLE, i, MPI_ANY_TAG, MPI_COMM_WORLD, &request);
-                    max_rates[i] = max_i_rate;
-                }
-                
-                //max_rate_idx = max_element(std::begin(max_rates), std::end(max_rates));
-                max_rate_idx = find_max_element(&max_rates);
+                max_rate_idx = find_min_element(&max_rates);
                 max_rate = max_rates[max_rate_idx];
-                
-                for (int i=1; i<num_procs; i++) {
-                        MPI_Isend(&max_rate, 1, MPI_DOUBLE, i, MPI_ANY_TAG, MPI_COMM_WORLD, &request);
-                }
             }
-            else {
-                max_i_rate = rate_cumsum[-1];
-                MPI_Isend(&max_i_rate, 1, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &request);
-                MPI_Irecv(&max_rate, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &request);
-            }
+
+            MPI_Bcast(&max_rate, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
             if (rate_cumsum[-1] == max_rate) {}
             else {
                 end_idx = (int)moves_lattice.rows() + 1;
                 moves_lattice.reshape(end_idx,1);
-                rate_cumsum.push_back(max_rate);
                 *moves_lattice[end_idx] = 5;
+                rate_cumsum.push_back(max_rate);
             }
         }
 
@@ -1678,7 +1680,9 @@ class Lattice {
             std::string times_filename;
             std::string count_filename;
 
-            while (t < time_lim) {
+            while (move_counts[0] < 500) {
+
+                //std::cout << "t: " << t << "\n";
 
                 end = std::chrono::system_clock::now(); 
                 elapsed_seconds = end-start; 
@@ -1699,7 +1703,7 @@ class Lattice {
                     print_1Dvector(move_counts);
                     break;
                 }
-                
+
                 int test_flag;
                 MPI_Status status;
                 MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &test_flag, &status);
@@ -1708,10 +1712,16 @@ class Lattice {
 
                 if (test_flag) {
                     MPI_Request irecv_request;
+                    std::cout << "move recieved \n";
                     MPI_Irecv(&new_loc_buffer[0], 9, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &irecv_request);
                     recieve_move_parallel(status, &new_loc_buffer);
                 }
 
+                only_vacancies = vacancies.nonzero();
+                std::cout << "number of vacancies: " << (int)only_vacancies->rows() << "\n";
+
+                MPI_Barrier(MPI_COMM_WORLD);
+                std::cout << "\n\n";
                 parallel_get_actions();
 
                 // writing output files every 500 timesteps
@@ -2305,7 +2315,7 @@ corresponding to initial configuration of simulation
 - creating rate catalog for bulk & pre-defined regions
 */
 Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, double vertex_rate, double edge_rate, 
-std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::vector<int>> chunk_bounds, int rank, std::vector<int> procs) {
+std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::vector<std::vector<int>> chunk_bounds, int rank, std::vector<int> procs) {
 
     std::fstream in_file;
     in_file.open(infile_name);
@@ -2399,7 +2409,6 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
         std::cout << "region!\n";
         incriment = regions_tuple.get_idx(); temp_regions = regions_tuple.get_regions(); temp_region_sites = regions_tuple.get_region_sites();
     }
-
     else {
         printf("ERROR: regions section mis-formatted in geometry file (check for extra newlines)");
         throw std::exception();
@@ -2420,7 +2429,6 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
     dims_int[0] = chunk_bounds[0][1] - chunk_bounds[0][0];
     dims_int[1] = chunk_bounds[1][1] - chunk_bounds[1][0];
     dims_int[2] = chunk_bounds[2][1] - chunk_bounds[2][0];
-
 
     FourDBoolArr* temp_vacancies = new FourDBoolArr(2, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
     FourDBoolArr* temp_vertex_sites = new FourDBoolArr(1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
@@ -2450,7 +2458,6 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
         }
     }
 
-
     int xhi_edge; int xlo_edge; int yhi_edge; int ylo_edge; int zhi_edge; int zlo_edge;
 
     xlo_edge = (((chunk_bounds[0][0]-1) % total_dims[0] + total_dims[0]) % total_dims[0]);
@@ -2462,8 +2469,10 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
 
     print_2Dvector(chunk_bounds);
     
-    std::cout << "\nxlo: " << chunk_bounds[0][0] << " xhi: " << chunk_bounds[0][1] << " ylo: " << chunk_bounds[1][0] << " yhi: " << chunk_bounds[1][1] << " zlo: " << chunk_bounds[2][0] << " zhi: " << chunk_bounds[2][1] << "\n";
-
+    std::tuple<size_t, size_t, size_t, size_t> vertex_size_tup = (*temp_vertex_sites).size_tuple;
+    std::tuple<size_t, size_t, size_t, size_t> bc_size_tup = (*temp_bc_sites).size_tuple;
+    std::tuple<size_t, size_t, size_t, size_t> vacancies_size_tup = (*temp_vacancies).size_tuple;
+    
     for (int i=read_idx; i<(int)lines.size(); i++){
         //std::cout << lines[i] << "\n";
         line_struct tuple_out = parse_line(lines[i]);
@@ -2471,48 +2480,54 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
         z = tuple_out.get_z(); atomtype = tuple_out.get_atype();
         atomtype = (int)(atomtype);
         
-        if ( (x == xlo_edge) || (x == xhi_edge) || (y == ylo_edge) || (y == yhi_edge) || (z == zlo_edge) || (z == zhi_edge) ) {
-            x = (int)x;
-            y = (int)y;
-            z = (int)z;                            
-
-            if ((x == xlo_edge) && (lattice_pos == "bc")) {                        
+        if (((procs[0] != 1) || (procs[1] != 1)) && 
+            ((x == xlo_edge) || (x == xhi_edge) || (y == ylo_edge) || (y == yhi_edge) || (z == zlo_edge) || (z == zhi_edge)) ) {
+            if (lattice_pos == "v") {
+                x = mod_with_bounds(x, dims_int[0]);
+                y = mod_with_bounds(y, dims_int[1]);
+                z = mod_with_bounds(z, dims_int[2]);
+            }
+            else {
+                x = mod_with_bounds((x - 0.5), dims_int[0]);
+                y = mod_with_bounds((y - 0.5), dims_int[1]);
+                z = mod_with_bounds((z - 0.5), dims_int[2]);
+            }                          
+            //std::cout << "proc_neighbor \n";
+            if ((x == xlo_edge) && (lattice_pos == "bc")) {
                 if (atomtype == 1) {
                     (*temp_proc_neg_x_neighbors)(y,z) = 1;
                 }      
             }
-            else if ((y == ylo_edge) && (lattice_pos == "bc")) {                        
+            else if ((y == ylo_edge) && (lattice_pos == "bc")) {
                 if (atomtype == 1) {
                     (*temp_proc_neg_y_neighbors)(x,z) = 1;
                 }      
             }
-            else if ((x == xhi_edge) && (lattice_pos == "v")) {                        
+            else if ((x == xhi_edge) && (lattice_pos == "v")) {
                 if (atomtype == 1) {
                     (*temp_proc_pos_x_neighbors)(y,z) = 1;
                 }      
             }
-            else if ((y == yhi_edge)&& (lattice_pos == "v")) {                        
+            else if ((y == yhi_edge)&& (lattice_pos == "v")) {
                 if (atomtype == 1) {
                     (*temp_proc_pos_y_neighbors)(x,z) = 1;
                 }      
             }
         }
-        else if ( (x >= chunk_bounds[0][0]) && (x <= chunk_bounds[0][1]) && 
+        if ((x >= chunk_bounds[0][0]) && (x <= chunk_bounds[0][1]) && 
         (y >= chunk_bounds[1][0]) && (y <= chunk_bounds[1][1]) &&
         (z >= chunk_bounds[2][0]) && (z <= chunk_bounds[2][1]) ) {
             if (lattice_pos == "v") {
-                x = (int)x;
-                y = (int)y;
-                z = (int)z;
+                x = mod_with_bounds(x, dims_int[0]);
+                y = mod_with_bounds(y, dims_int[1]);
+                z = mod_with_bounds(z, dims_int[2]);
 
                 if (atomtype == 0) {
-                    //std::cout << "site x: " << x << " y: " << y << " z: " << z << "\n"; 
                     (*temp_vertex_sites)(0,x,y,z) = 0;
                     (*temp_vacancies)(0,x,y,z) = 1;
                     vacancies_count ++;
                 }
                 else if (atomtype == 1) {
-                    //std::cout << "site x: " << x << " y: " << y << " z: " << z << "\n"; 
                     (*temp_vertex_sites)(0,x,y,z) = 1;
                 }      
                 else {
@@ -2521,9 +2536,9 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
                 }
             }
             else {
-                x = (int)(x - 0.5);
-                y = (int)(y - 0.5);
-                z = (int)(z - 0.5);
+                x = mod_with_bounds((x - 0.5), dims_int[0]);
+                y = mod_with_bounds((y - 0.5), dims_int[1]);
+                z = mod_with_bounds((z - 0.5), dims_int[2]);
 
                 if (atomtype == 0) {
                     (*temp_bc_sites)(0,x,y,z) = 0;
@@ -2543,6 +2558,7 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
 
     if (catalogfile_name != "None") {
         ratecatalog_struct cat_tuple = updated_create_ratecatalog(catalogfile_name, a_type_keys);
+        std::cout << "cat_tuple out \n";
         std::vector< std::vector< std::vector<double> > > reg_energies = cat_tuple.get_energies();
         int region_num = cat_tuple.get_region_num();
     }
@@ -2550,6 +2566,8 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
         std::cout << "ERROR: No rate catalog file provided";
         exit(0);
     }
+
+    std::cout << "read_catalog \n";
 
     //creating & sorting rate catalog
     std::vector< std::vector< std::vector<double> > > new_energies;
@@ -2565,9 +2583,9 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
     std::vector<double> vacs_Es {0.02, 0.02, 0.02, 0.02, 0.02};
     int reg_num = 0;
 
-
     Matrix<double>* temp_111_catalog = new Matrix<double>((size_t)2, (size_t)exp_int(2, 8));
     Matrix<double>* temp_100_catalog = new Matrix<double>((size_t)2, (size_t)exp_int(2, 14));
+
     Matrix<int> configs_111((size_t)1, (size_t)exp_int(2, 8));
     Matrix<int> configs_100((size_t)1, (size_t)exp_int(2, 14)); 
     
@@ -2647,8 +2665,8 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
     // intialzing lattice, basis vectors, vacancies, mobile ions, and fixed //
     // atoms based upon dimensions //
     
-    int num_x_neigh = (int)( dims_int[0]/procs[0] ) + 2;
-    int num_y_neigh = (int)( dims_int[1]/procs[1] ) + 2;
+    int num_x_neigh = dims_int[0] + 2;
+    int num_y_neigh = dims_int[1] + 2;
 
     Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, num_regions, nprocs, num_x_neigh, num_y_neigh);
 
@@ -2670,11 +2688,9 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
         }
     }
 
-    int xlen = (int)(*temp_proc_neg_x_neighbors).rows();
-    int ylen = (int)(*temp_proc_neg_y_neighbors).rows();
-    int zlen = (int)(*temp_proc_neg_x_neighbors).cols();
-
-    std::cout << "xlen: " << xlen << " ylen: " << ylen << " zlen: " << zlen << "\n";
+    int xlen; int ylen; int zlen;
+    ylen = (int)(*temp_proc_neg_x_neighbors).rows();
+    zlen = (int)(*temp_proc_neg_x_neighbors).cols();
 
     for (size_t j=0; j<(size_t)ylen; j++) {
         for (size_t k=0; k<(size_t)zlen; k++) {
@@ -2682,7 +2698,10 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
             new_lattice->proc_pos_x_neighbors(j,k) = (*temp_proc_pos_x_neighbors)(j,k);
         }
     }
-    
+
+    xlen = (int)(*temp_proc_neg_y_neighbors).rows();
+    zlen = (int)(*temp_proc_neg_y_neighbors).cols();
+
     for (size_t j=0; j<(size_t)xlen; j++) {
         for (size_t k=0; k<(size_t)zlen; k++) {
             new_lattice->proc_neg_y_neighbors(j,k) = (*temp_proc_neg_y_neighbors)(j,k);
@@ -2694,7 +2713,6 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
     new_lattice->configs_111 = configs_111;
     new_lattice->configs_100 = configs_100;
 
-
     size_t rows = new_lattice->ratecatalog_111.rows();
     size_t cols = new_lattice->ratecatalog_111.cols();
     for (size_t i=0; i<rows; i++) {
@@ -2703,7 +2721,6 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
         }
     }
     
-
     rows = new_lattice->ratecatalog_100.rows();
     cols = new_lattice->ratecatalog_100.cols();
     for (size_t i=0; i<rows; i++) {
@@ -2737,25 +2754,14 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
 
     new_lattice->rates = create_vec_1D_float(vacancies_count);
 
-
     for (int i=0; i<(int)a_type_values.size(); i++) {new_lattice->a_types[a_type_keys[i]] = a_type_values[i];}
 
-
-    new_lattice->region_energies = reg_energies; 
-
-    std::cout << "new_lattice->region_energies assigned \n";
+    new_lattice->region_energies = reg_energies;
     
     new_lattice->chunk_bounds = chunk_bounds;
 
-    std::cout << "new_lattice->chunk_bounds assigned \n";
-    
-    //new_lattice->vacancies.print_4Dvector();
-
-    std::cout << "\n";
-
     Matrix<int>* nonzero_vacs = new_lattice->vacancies.nonzero();
-
-    std::cout << "new_lattice->vacancies.nonzero() \n";
+    //nonzero_vacs->print();
 
     for (int i=0; i<(int)(*nonzero_vacs).rows(); i++) {
         for (int j=0; j<(int)(*nonzero_vacs).cols(); j++) {
@@ -2763,26 +2769,60 @@ std::vector<std::vector<double>> reg_rates, int* total_dims, std::vector<std::ve
         }
     }
 
-   
-    std::cout << "done with nonzero_vacs \n";
+    /* making procs neighbors */
+    int total_procs = procs[0] * procs[1];
+    int x_idx = 0; int y_idx = 0;
+    int curr_x=0; int curr_y=0;
+    Matrix<int> all_procs((size_t)procs[0], (size_t)procs[1]);
+    std::vector<size_t> new_idxs;
+
+    for (int rank_i=0; rank_i<total_procs; rank_i++) {
+        x_idx = rank_i % procs[0];
+        y_idx = floor(rank_i / procs[0]);
+
+        all_procs[x_idx][y_idx] = rank_i;
+        //if (rank == rank_i) { curr_x = x_idx; curr_y = y_idx; }
+    }
+
+    for (int rank_i=0; rank_i<total_procs; rank_i++) {
+        curr_x = rank_i % procs[0];
+        curr_y = floor(rank_i / procs[0]);
+
+        new_idxs = mod_with_bounds(curr_x + 1, curr_y, procs[0], procs[1]);
+        new_lattice->proc_neighbors[rank_i][0] = all_procs[new_idxs[0]][new_idxs[1]];
+        new_idxs = mod_with_bounds(curr_x + 1, curr_y + 1, procs[0], procs[1]);
+        new_lattice->proc_neighbors[rank_i][1] = all_procs[new_idxs[0]][new_idxs[1]];
+        new_idxs = mod_with_bounds(curr_x, curr_y + 1, procs[0], procs[1]);
+        new_lattice->proc_neighbors[rank_i][2] = all_procs[new_idxs[0]][new_idxs[1]];
+        new_idxs = mod_with_bounds(curr_x - 1, curr_y + 1, procs[0], procs[1]);
+        new_lattice->proc_neighbors[rank_i][3] = all_procs[new_idxs[0]][new_idxs[1]];
+        new_idxs = mod_with_bounds(curr_x - 1, curr_y, procs[0], procs[1]);
+        new_lattice->proc_neighbors[rank_i][4] = all_procs[new_idxs[0]][new_idxs[1]];
+        new_idxs = mod_with_bounds(curr_x - 1, curr_y - 1, procs[0], procs[1]);
+        new_lattice->proc_neighbors[rank_i][5] = all_procs[new_idxs[0]][new_idxs[1]];
+        new_idxs = mod_with_bounds(curr_x, curr_y - 1, procs[0], procs[1]);
+        new_lattice->proc_neighbors[rank_i][6] = all_procs[new_idxs[0]][new_idxs[1]];
+        new_idxs = mod_with_bounds(curr_x + 1, curr_y - 1, procs[0], procs[1]);
+        new_lattice->proc_neighbors[rank_i][7] = all_procs[new_idxs[0]][new_idxs[1]];   
+    }
 
     delete temp_111_catalog;
     delete temp_100_catalog;
     delete temp_region_sites;
+
     delete temp_vacancies;
     delete temp_vertex_sites;
     delete temp_bc_sites;
+
     delete temp_proc_neg_x_neighbors;
     delete temp_proc_neg_y_neighbors;
     delete temp_proc_pos_x_neighbors;
     delete temp_proc_pos_y_neighbors;
 
-
     std::cout << "most variables deleted \n";
 
     new_lattice->rate_cumsum.resize(14*nonzero_vacs->rows());
 
-    std::cout << "resized \n";
     delete nonzero_vacs;
 
     std::cout << "exiting function  \n";

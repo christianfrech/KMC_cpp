@@ -274,3 +274,16 @@ int find_max_element(std::vector<double> * max_rates) {
     }
     return max_idx;
 }
+
+int find_min_element(std::vector<double> * max_rates) {
+    int max_idx;
+    double max_val = 0;
+
+    for (int i=0; i<(int)(*max_rates).size(); i++) {
+        if ( (*max_rates)[i] <= max_val ) {
+            max_idx = i;
+            max_val = (*max_rates)[i];
+        }
+    }
+    return max_idx;
+}

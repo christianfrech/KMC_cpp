@@ -251,7 +251,7 @@ std::vector<int> arange(int start, int end, int step) {
 // in a[low..high]
 int searchsorted_recursive(std::vector<double>* a, double item, int low, int high) {
     if (high <= low) { return (item > (*a)[low]) ? (low + 1) : low; }
-    
+    //std::cout << "low: " << low << " high: " << high << " item: " << item << "\n";
     int mid = (low + high) / 2;
  
     if (item == (*a)[mid]) { return (mid + 1); }
@@ -286,4 +286,12 @@ int find_min_element(std::vector<double> * max_rates) {
         }
     }
     return max_idx;
+}
+
+bool is_in(std::vector<std::vector<size_t>> v, std::vector<size_t> sub_v) {
+    for (int i=0; i<(int)v.size(); i++) {
+        if (v[i] == sub_v) {return true;}
+    }
+    
+    return false;
 }

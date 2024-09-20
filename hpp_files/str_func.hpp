@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <fstream>
 
-
+#include "classes_strucs.hpp"
 
 
 struct reg_line_struct {
@@ -193,18 +193,33 @@ reg_line_struct parse_reg_line(std::string line) {
     return output_vals;
 }
 
+
+void write_to_file(std::string filename, Matrix<int>* values) {
+    std::ofstream out_file;
+    out_file.open(filename);
+    std::string s;
+
+    if (out_file.is_open()) {
+        for (int i=0; i<(int)values->rows(); i++) {
+            for (int j=0; j<(int)values->cols(); j++) {     
+                out_file << (*values)[i][j] << " ";
+            }
+            out_file << "\n";  
+        }
+    }
+
+    out_file.close();
+}
+
+
 void write_to_file(std::string filename, std::vector< std::vector<int> > values) {
     std::ofstream out_file;
     out_file.open(filename);
     std::string s;
 
-    //std::cout << "writing \n";
-
     if (out_file.is_open()) {
-        //std::cout << "file open \n";
         for (int i=0; i<(int)values.size(); i++) {
-            for (int j=0; j<(int)values[i].size(); j++) {         
-                //s = std::to_string(values[i][j]);
+            for (int j=0; j<(int)values[i].size(); j++) { 
                 out_file << values[i][j] << " ";
             }
         out_file << "\n";
@@ -212,5 +227,4 @@ void write_to_file(std::string filename, std::vector< std::vector<int> > values)
     }
 
     out_file.close();
-    //std::cout << "closing \n";
 }

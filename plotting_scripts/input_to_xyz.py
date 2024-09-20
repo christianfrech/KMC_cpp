@@ -19,12 +19,12 @@ def parse_line(line):
     return lattice_pos,x,y,z
 
 
-def read_vac_file(filename, size, z_dim):
-    output = np.zeros((size, 3))
+def read_vac_file(filename):
     read_file = open(filename, 'r')
     lines = [line for line in read_file]
+    output = np.zeros((len(lines) - 6, 3))
     idx = 0
-    lines = lines[4:]
+    lines = lines[6:]
 
     for line in lines:
         lattice_type,x,y,z = parse_line(line)
@@ -37,7 +37,7 @@ def read_vac_file(filename, size, z_dim):
             output[idx][0] = (x*2)
             output[idx][1] = (y*2)
             output[idx][2] = (z*2)
-
+            
         else: 
             output[idx][0] = (x*2 + 1)
             output[idx][1] = (y*2 + 1)
@@ -45,8 +45,8 @@ def read_vac_file(filename, size, z_dim):
 
         print(output[idx])
         idx += 1
-
-
+    
+    print("done")
     return output
 
 
@@ -65,22 +65,22 @@ def write_expanded_vac_file(filename, lines):
         x = str(x)
         y = str(y)
         z = str(z)
-        #print(f"{x} {y} {z}")
         file_out.write(f"v {x} {y} {z}\n")
-
+    print("done writing")
     file_out.close()
+    return 0
 
 
 pwd = os.getcwd()
-rootdir = pwd 
-size = 1284
-dims = [50,32,64]
-newdir = pwd
+rootdir = pwd #os.path.join(pwd, "vacs") 
+newdir = pwd #os.path.join(pwd, "expanded_vacs")
 for subdir, dirs, files in os.walk(rootdir):
     for file in files:
-        if ("1024_vacancies_flat.txt" in file):
+        if ("test_hex.txt" in file):
             filepath_in = os.path.join(rootdir, file)
-            coords = read_vac_file(filepath_in, size, dims[2])
+            coords = read_vac_file(filepath_in)
             output_extension = file[:-4] + "_expanded.xyz"
             filepath_out = os.path.join(newdir, output_extension)
+            print("writing")
             write_expanded_vac_file(filepath_out, coords)
+            break

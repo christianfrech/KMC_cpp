@@ -8,7 +8,7 @@
 
 
 
-void print_3Dvector_float(std::vector< std::vector< std::vector<double> > > vec) {
+void print_3Dvector(std::vector< std::vector< std::vector<double> > > vec) {
     int M = (int)vec.size();;
     std::cout << "[ ";
     for (int m=0; m<M; m++) {
@@ -44,7 +44,7 @@ void print_3Dvector(std::vector< std::vector< std::vector<int> > > vec) {
     std::cout << "] \n\n";
 }
 
-void print_2Dvector_float(std::vector< std::vector<double> > vec) {
+void print_2Dvector(std::vector< std::vector<double> > vec) {
     int M = (int)vec.size();;
     std::cout << "[ ";
     for (int m=0; m<M; m++) {
@@ -89,7 +89,7 @@ void print_1Darr(int* arr, int size) {
     std::cout << "] \n\n";
 }
 
-void print_1Dvector_float(std::vector<double> vec) {
+void print_1Dvector(std::vector<double> vec) {
     int N = (int)vec.size();
     std::cout << "[ ";
     for (int n=0; n<N; n++) {
@@ -98,7 +98,7 @@ void print_1Dvector_float(std::vector<double> vec) {
     std::cout << "] \n\n";
 }
 
-void print_1Dvector_string(std::vector<std::string> vec) {
+void print_1Dvector(std::vector<std::string> vec) {
     int N = (int)vec.size();
     std::cout << "[ ";
     for (int n=0; n<N; n++) {
@@ -107,7 +107,7 @@ void print_1Dvector_string(std::vector<std::string> vec) {
     std::cout << "] \n\n";
 }
 
-void print_1Dvector_size_t(std::vector<size_t> &vec) {
+void print_1Dvector(std::vector<size_t> &vec) {
     int N = (int)vec.size();
     std::cout << "[ ";
     for (int n=0; n<N; n++) {

@@ -96,7 +96,6 @@ def embed_hexagon_subroutine(sim_cell, locs, size, dims):
         for k in range(size): # length of grain 
             i3 = k + grain_loc[2]
             if (i3 >= 0) and (i3 < dims[2]):
-                #arr = draw_hexagon((size, size, size), int(size/2))
                 
                 if (k < np.ceil(size/4)): 
                     width = int(4 * k)
@@ -266,7 +265,7 @@ grain_points = np.transpose(grain_locs, (1,0))
 ax = fig.add_subplot(111, projection='3d')
 sim_cell = np.zeros((x_dim,y_dim, z_dim))
 print(f"grain_locs: {grain_locs}")
-sim_cell = embed_hexagon_subroutine(sim_cell, all_points_masked, grain_diam, [x_dim, y_dim, z_dim])
+sim_cell = embed_hexagon_subroutine(all_points_masked, grain_diam, [x_dim, y_dim, z_dim])
 
 arr_nonz = np.nonzero(np.logical_not(sim_cell))
 #arr_nonz = np.nonzero(sim_cell)

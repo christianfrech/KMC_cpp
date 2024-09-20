@@ -9,7 +9,21 @@
 #include <math.h>
 
 
-int exp_int(int base, int exponent) {
+template <typename T>
+T exp(T base, int exponent) {
+    T res = 0;
+    
+    if (exponent == 0) {return 1;}
+    else {
+        for (int i=0; i<(exponent); i++) {
+            if (i == 0) {res = base;}
+            else {res = res*base;}
+        }
+    }
+    return res;
+}
+
+int exp(int base, int exponent) {
     int res = 0;
     
     if (exponent == 0) {return 1;}

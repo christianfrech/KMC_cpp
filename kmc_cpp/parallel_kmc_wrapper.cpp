@@ -11,7 +11,7 @@ int main() {
     int size; 
     int rank;
     int gcf;    
-    int dims[3] = {0,0,0};
+    std::vector<int> dims = {0,0,0};
 
     std::ostringstream ss;
     std::string output_filename;
@@ -23,17 +23,17 @@ int main() {
     std::vector<std::string> lines;
     std::string line;
     int read_idx = 0;
-    
-    std::vector< std::string > infile_name = {"geo_in.txt"};
+    std::vector< std::string > infile_name = {"geo_small.txt"};
     std::vector<double> vertex_rates = {7.65954e11};
     std::vector<double> edge_rates = {1.23537e6};
     std::vector<std::string> folders = {"parallel_output"};
     std::vector< std::string > catalog_file = {"ratecatalog_nogb.txt"};
     std::string region_infile;
-    std::vector< std::vector< std::vector<double> > > reg_rates = {{{8.28403e10, 5e12}}}; //settings of kb = 8.6173e-5, T = 300, E = 0.05, prefactor = 5e12
+    std::vector< std::vector< std::vector<double> > > reg_rates = {{{8.28403e10, 8.28403e10}}}; //settings of kb = 8.6173e-5, T = 300, E = 0.05, prefactor = 5e12
     std::tuple< std::vector< std::vector< std::vector<int> > >, std::vector<int>, std::vector<double>, std::vector<double> > return_tuple;
     int iterations = 1;
     double time = 10;
+    int waitint = 0;
 
     std::vector<Matrix<int>*> vacancies; std::vector<int> counts; std::vector<double> times; std::vector<double> all_times;
     
@@ -71,21 +71,21 @@ int main() {
                     exit(0); 
                 }
                 else {
-                    //gcf = 2;
-                    gcf = find_gcf(nprocs, dims[0]); 
+                    gcf = create_partition(nprocs, dims[0]); 
                 }
 
                 xprocs = gcf;
                 yprocs = (int)(nprocs / gcf);
+                std::cout << "xprocs: " << xprocs << " yprocs: " << yprocs << "\n";
 
                 std::cout << "starting mpi stuff \n";
+
                 // specify number of procs using slurm
                 MPI_Init(NULL, NULL);
                 MPI_Comm_size(MPI_COMM_WORLD, &size);
                 MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
                 std::cout << "rank: " << rank << "\n";
-
                 std::cout << "mpi initialized \n";
                 // chunkify all needed variables
                 int x_idx = rank % xprocs;
@@ -98,6 +98,7 @@ int main() {
                 std::vector<int> procs = {xprocs, yprocs};
 
                 std::vector< std::vector<int> > chunk_bounds = {{x_chunk_start, x_chunk_end},{y_chunk_start, y_chunk_end}, {0,dims[2]}};
+                std::cout << "rank: " << rank <<"\n";
                 print_2Dvector(chunk_bounds);
                 //exit(0);
                 std::chrono::system_clock::time_point start;
@@ -107,20 +108,22 @@ int main() {
                 
                 char hostname[256];
                 gethostname(hostname, sizeof(hostname));
-                printf("PID %d on %s ready for attach\n", getpid(), hostname);
-                fflush(stdout);
-                
-                int waitint = 0;
+                fflush(stdout); 
+                /*
                 if (rank == 0) {
+                    printf("PID %d on %s ready for attach for rank %d\n", getpid(), hostname, rank);
                     while (waitint==0) {
                         sleep(1);
                     }
                 }
-
+                */
+                
                 MPI_Barrier(MPI_COMM_WORLD);
-    
+                printf("past barrier");
+                fflush(stdout);
+
                 Lattice* lattice = populate_lattice(infile_name[h], catalog_file[h], region_infile, vertex_rates[k], edge_rates[k], reg_rates[h], dims, chunk_bounds, rank, procs);
-                std::cout << "after populate_lattice \n";
+                std::cout << "after populate_lattice " << std::endl;
                 start = std::chrono::system_clock::now();
                 std::cout << "time got \n";
                 MPI_Barrier(MPI_COMM_WORLD);
@@ -130,149 +133,140 @@ int main() {
                 vacancies = return_tuple.get_all_vacancies(); counts = return_tuple.get_move_counts(); times = return_tuple.get_time_count(); all_times =return_tuple.get_all_times();
 
                 MPI_Barrier(MPI_COMM_WORLD); // all the sub ranks/processes waits here
+
+                std::cout << "rank: " << rank << " post main call barrier \n";
                 /* process 0 will aggregate the results*/
+                int size = 0;
                 int size1 = (int)vacancies.size();
-                int size2 = (int)vacancies[0]->rows();
-                int size3 = (int)vacancies[0]->cols();
-                int size = (int)(vacancies.size() * vacancies[0]->rows() * vacancies[0]->cols());
+
+                for (int frame=0; frame < (int)vacancies.size(); frame++) {
+                    size += (int)( vacancies[frame]->rows() * vacancies[frame]->cols());
+                }
+
                 std::vector<int> output(size);
                 int idx = 0;
                 Matrix<int>* one_vac;
-
-                for (int frames=0; frames<(int)vacancies.size(); frames++) {
-                    for (int vacs=0; vacs<(int)vacancies[frames]->rows(); vacs++) {
-                        for (int coord=0; coord<(int)vacancies[frames]->cols(); coord++) {
-                            idx = (int)frames * size3 * size2 + vacs * size3 + coord;
-                            one_vac = vacancies[frames];
-                            output[idx] = (*one_vac)[vacs][coord];
-                        }
-                    }
-                }
-
+                int size2 = 0;
+                int size3 = 0;
                 int size_in;
                 std::vector<int> vacs_in;
-                std::vector< std::vector<int> > all_vacs_flattened;
-                std::vector< std::vector< std::vector< std::vector<int> > > > all_vacs;
+                Matrix<int>* proc_vacancies;
+                std::vector< Matrix<int>* > vacancies_allframes;
                 FourDBoolArr vacancies_out(2, dims[0], dims[1], dims[2]);
                 int i1; int i2; int i3; int i4;
                 MPI_Status status;
+                MPI_Request request;
 
-                if(rank==0) {
-                    for (int i=1; i<size; i++) {
-                        x_idx = i % dims[0];
-                        y_idx = floor(i / xprocs);
-                        x_chunk_start = (int)( dims[0]/xprocs * x_idx );
-                        y_chunk_start = (int)( dims[1]/yprocs * y_idx );
-                    
-                        //int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
-                        //MPI_Comm comm, MPI_Status *status)
-                        
-                        MPI_Recv(
-                                &size_in,      //Address of the message we are receiving.
-                                1,                  //Number of elements handled by that address.
+                std::vector<int> nums_and_proc(2);
+                std::vector<int> num_proc_buffer(2);
+
+                for (int frames=0; frames<(int)vacancies.size(); frames++) {
+                    vacancies_out.zero();
+                    int num_elems = (int)(vacancies[frames]->rows() * 4);
+                    nums_and_proc[0] = num_elems;
+                    nums_and_proc[1] = rank;
+                    std::cout << "rank: " << rank << " nums_and_proc: \n";
+                    print_1Dvector(nums_and_proc);
+                    std::cout << "rank: " << rank << " vacancies[frames]: \n";
+                    vacancies[frames]->print();
+
+                    MPI_Isend(
+                        nums_and_proc.data(),      //Address of the message we are receiving.
+                        2,                  //Number of elements handled by that address.
+                        MPI_INT,            //MPI_TYPE of the message we are sending.
+                        0,                  //Rank of receiving process
+                        1,                  //Message Tag
+                        MPI_COMM_WORLD,      //MPI Communicator
+                        &request 
+                    );
+                    MPI_Isend(
+                        vacancies[frames]->data(),      //Address of the message we are receiving.
+                        (int)(vacancies[frames]->rows() * 4),        //Number of elements handled by that address.
+                        MPI_INT,            //MPI_TYPE of the message we are sending.
+                        0,                  //Rank of receiving process
+                        2,                  //Message Tag
+                        MPI_COMM_WORLD,     //MPI Communicator
+                        &request 
+                    );
+
+                    printf("Process %d has sent \n", rank);
+             
+
+                    MPI_Barrier(MPI_COMM_WORLD); // all the sub ranks/processes waits here
+
+                    if (rank == 0) {
+                        for (int rec_proc=0; rec_proc<nprocs; rec_proc++) {
+                                    
+                            std::cout << "rank: " << rank << " rec_proc " << rec_proc << "\n";
+                            MPI_Recv(
+                                num_proc_buffer.data(),      //Address of the message we are receiving.
+                                2,                  //Number of elements handled by that address.
                                 MPI_INT,            //MPI_TYPE of the message we are sending.
-                                i,                  //Rank of sending process
+                                rec_proc,           //Rank of sending process
                                 1,                  //Message Tag
                                 MPI_COMM_WORLD,      //MPI Communicator
-                                &status
+                                &status 
+                            ); 
+                           
+                            vacs_in.resize(num_proc_buffer[0]);
+                            std::cout << "num_proc_buffer[1]: " << num_proc_buffer[1] << " num_proc_buffer[0]: " << num_proc_buffer[0] << "\n";
+                            std::cout << "num_proc_buffer[1]: " << num_proc_buffer[1] << " vacs_in.size(): " << vacs_in.size() << "\n";
+                            
+                            MPI_Recv(
+                                    vacs_in.data(),      //Address of the message we are receiving.
+                                    num_proc_buffer[0],                  //Number of elements handled by that address.
+                                    MPI_INT,            //MPI_TYPE of the message we are sending.
+                                    rec_proc,                  //Rank of sending process
+                                    2,                  //Message Tag
+                                    MPI_COMM_WORLD,      //MPI Communicator
+                                    &status 
                             );
-                        MPI_Recv(
-                                &vacs_in,      //Address of the message we are receiving.
-                                size_in,                  //Number of elements handled by that address.
-                                MPI_INT,            //MPI_TYPE of the message we are sending.
-                                i,                  //Rank of sending process
-                                1,                  //Message Tag
-                                MPI_COMM_WORLD,      //MPI Communicator
-                                &status
-                            );
-                        //MPI_Irecv(&max_rate, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &request);
-                        
-                        printf("Process %d has received \n", i);
-                        
-                        for (int j=0; j<size1; j++) {
-                            for (int k=0; k<size2; k++) {
-                                for (int l=0; l<size3; l++) {
-                                    idx = (int)(j*size2*size3 + k*size3 + l);
-                                    if (l==0) i1 = vacs_in[idx];
-                                    else if (l==1) i2 = vacs_in[idx] + x_chunk_start;
-                                    else if (l==2) i3 = vacs_in[idx] + y_chunk_start;
-                                    else if (l==3) i4 = vacs_in[idx];
-                                    vacancies_out(i1,i2,i3,i4) = 1;                                 
+
+                            if (num_proc_buffer[0] != 0) {
+                                                        
+                                std::cout << "rank: " << rank << " vacs_in: \n";
+                                print_1Dvector(vacs_in);
+                                x_idx = num_proc_buffer[1] % dims[0];
+                                y_idx = floor(num_proc_buffer[1] / xprocs);
+                                x_chunk_start = (int)( dims[0]/xprocs * x_idx );
+                                y_chunk_start = (int)( dims[1]/yprocs * y_idx );
+                                std::cout << "rank: " << rank << " dims[0] " << dims[0] << " dims[1] " << dims[1] << " xprocs " << xprocs << " yprocs " << yprocs << " nums_and_proc[0] " << nums_and_proc[0] << " nums_and_proc[1] " << nums_and_proc[1] << "\n";
+                                std::cout << "rank: " << rank << " x_idx " << x_idx << " y_idx " << y_idx << " x_chunk_start " << x_chunk_start << " y_chunk_start " << y_chunk_start << "\n\n";
+                                size2 = (int)(vacs_in.size()/4);
+                                size3 = 4;
+                                for (int k=0; k<size2; k++) {
+                                    idx = (int)(k*size3);
+                                    i1 = vacs_in[idx];
+                                    i2 = vacs_in[idx+1] + x_chunk_start;
+                                    i3 = vacs_in[idx+2] + y_chunk_start;
+                                    i4 = vacs_in[idx+3];
+                                    vacancies_out(i1,i2,i3,i4) = 1;
+                                    std::cout << "rank: " << rank << " input:   [ " << i1 << " " << i2 << " " << i3 << " " << i4 << " ]\n";
                                 }
-                            }
-                        } 
+                            }                  
+                        }
+                        proc_vacancies = vacancies_out.nonzero();
+                        vacancies_allframes.push_back(proc_vacancies);
                     }
-                }
-                else {
-                    MPI_Send(
-                            &size,      //Address of the message we are receiving.
-                            1,                  //Number of elements handled by that address.
-                            MPI_INT,            //MPI_TYPE of the message we are sending.
-                            rank,                  //Rank of sending process
-                            1,                  //Message Tag
-                            MPI_COMM_WORLD      //MPI Communicator
-                        );
-                    MPI_Send(
-                            &output,      //Address of the message we are receiving.
-                            size,                  //Number of elements handled by that address.
-                            MPI_INT,            //MPI_TYPE of the message we are sending.
-                            rank,                  //Rank of sending process
-                            1,                  //Message Tag
-                            MPI_COMM_WORLD      //MPI Communicator
-                        );
-                    printf("Process %d has sent \n", i);
 
+                    MPI_Barrier(MPI_COMM_WORLD); // all the sub ranks/processes waits here
                 }
-                      
-                printf("\n");
+                
+                printf("MPI Finalize\n");
                 MPI_Finalize();
-
-                Matrix<int>* all_vacancies = vacancies_out.nonzero();
-
-                for (int l=0; l<all_vacancies->rows(); l++) {
+                
+                for (int l=0; l<vacancies_allframes.size(); l++) {
                     ss << folders[h] << "/vacs/vacancies_output_" << (i) << "_" << l << "_" << k << "rate.txt";
                     output_filename = ss.str();
-                    write_to_file(output_filename, vacancies[l]);
+                    write_to_file(output_filename, vacancies_allframes[l]);
                     ss.str("");
                     ss.clear();
                 }
-
-                for (int l=0; l<all_times.size(); l++) {
-                    ss << folders[h] << "/all_times/alltimes_output_" << (i) << "_" << l << "_" << k << "rate.txt";
-                    std::cout << ss.str() << "\n";
-                    alltimes_filename = ss.str();
-                    out_file.open(alltimes_filename);
-                    out_file << all_times[l] << "\n";
-                    ss.str("");
-                    ss.clear();
-                    out_file.close();
-                } 
-
-                for (int l=0; l<(int)counts.size(); l++) {
-                    ss << folders[h] << "/counts/counts_output_" << (i) << "_" << l << "_" << k << "rate.txt";
-                    count_filename = ss.str();
-                    out_file.open(count_filename);
-                    out_file << counts[l] << "\n";
-                    ss.str("");
-                    ss.clear();
-                    out_file.close();
-
-                    ss << folders[h] << "/times/times_output_" << (i) << "_" << l << "_" << k << "rate.txt";
-                    times_filename = ss.str();
-                    out_file.open(times_filename);
-                    out_file << times[l] << "\n";
-                    ss.str("");
-                    ss.clear();
-                    out_file.close();
-                }
-
             }
         }
     }
 
     for (int i=0; i < (int)vacancies.size(); i++) { delete vacancies[i]; }
-    
-    
-    
+
     return 0;
 }

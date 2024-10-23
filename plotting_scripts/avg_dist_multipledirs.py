@@ -12,15 +12,6 @@ import imageio
 
 np.set_printoptions(threshold=sys.maxsize)
 
-def matano_boltzmann(A, x, t):
-    center = 100.5
-    lattice_param = 3.5e-10
-    D = 5e-11
-    vib_freq = 5e-12
-
-    return A/2 * (sci.special.erf((1 - (center - x)) * lattice_param /np.sqrt(2 * math.pi * t * D * vib_freq)) + sci.special.erf((1 + (center - x)) * lattice_param/np.sqrt(2 * math.pi * t * D * vib_freq)))
-
-
 def parse_line(line):
     toks = line.split(" ")
     lattice_pos = (toks[0])
@@ -30,89 +21,271 @@ def parse_line(line):
     return lattice_pos,x,y,z
 
 
-def read_vac_file(filename, size, dims):
-    output = np.zeros((size, 3))
+def read_vac_file(filename, dims):
     read_file = open(filename, 'r')
     lines = [line for line in read_file]
-
+    size = len(lines)
+    output = np.zeros((size, 3))
     idx = 0
     for line in lines:
         lattice_pos,x,y,z = parse_line(line)
-        lattice_pos = int(lattice_pos)
-        x = int(x)
-        y = int(y)
-        z = int(z)
-        if (lattice_pos == 0):
-            output[idx][0] = (x*2) % (2*dims[0])
-            output[idx][1] = (y*2) % (2*dims[1])
-            output[idx][2] = (z*2) % (2*dims[2])
+        x = int(float(x))
+        y = int(float(y))
+        z = int(float(z))
+        
+        if (lattice_pos == "v"):
+            output[idx][0] = (x) % (2*dims[0])
+            output[idx][1] = (y) % (2*dims[1])
+            output[idx][2] = (z) % (2*dims[2])
 
         else: 
-            output[idx][0] = (x*2 + 1) % (2*dims[0])
-            output[idx][1] = (y*2 + 1) % (2*dims[1])
-            output[idx][2] = (z*2 + 1) % (2*dims[2])
+            output[idx][0] = (x) % (2*dims[0])
+            output[idx][1] = (y) % (2*dims[1])
+            output[idx][2] = (z) % (2*dims[2])
 
 
         idx += 1
 
     return output
 
-size = 128
-iterations = 25
-times = np.arange(5,5005,5)
-lines_colors = ["blue", "red", "orange"]
-dims = [16, 16, 12]
-idx=0
-fig, ax = plt.subplots()
-j=0
-dir_names = ["fast_and_slow", "pristine_figs"]
-data_names = []
-all_vacancies = np.zeros((len(dir_names),iterations,len(times),size,3))
-all_times = np.zeros((len(dir_names),iterations,len(times)), dtype = float)
+
+def find_max_steps(dir):
+    max_time = 0
+
+    for subdir, dirs, files in os.walk(dir):
+        for file in files:
+            if ("fixed" not in file) and ("00000_" in file): 
+                split_filename = file.split("_")
+                time = float(split_filename[3])
+
+                if (time > max_time): 
+                    max_time = time
+    
+    return max_time
+
+
+def find_min_steps(dir):
+    min_time = sys.maxsize
+
+    for subdir, dirs, files in os.walk(dir):
+        for file in files:
+            if ("fixed" not in file): 
+                split_filename = file.split("_")
+                time = float(split_filename[3])
+
+                if (time < min_time): 
+                    min_time = time
+    
+    return min_time
+
+
+def find_step_size(dir):
+    min_time = sys.maxsize
+    prev_min_time = sys.maxsize
+
+    for subdir, dirs, files in os.walk(dir):
+        for file in files:
+            if ("fixed" not in file): 
+                split_filename = file.split("_")
+                time = float(split_filename[3])
+
+                if (time < min_time): 
+                    prev_min_time = min_time
+                    min_time = time
+    
+    step_size = int(prev_min_time) - int(min_time)
+
+    return step_size
+
+
+
+def get_size(filename):
+    read_file = open(filename, 'r')
+    lines = [line for line in read_file]
+    size = len(lines)
+
+    return size
+
+dots_colors = ["purple", "blue", "red", "orange", "green"]
+lines_colors = ["blue", "red", "orange", "green"]
+
+dir_names = ["void_bulk_large_3NN_centered"]
+labels = ["bulk init", "bulk final", "interface init", "interface final"]
+shapes = ["+","s"]
 
 rootdir = os.getcwd()
-for subdir, dirs, files in os.walk(rootdir):
-    for dir in dirs:
-        if (("pristine_lattice" in dir) and ("1traj" not in dir)) or ("fast_and_slow" in dir):
-            mid_filepath = os.path.join(rootdir, dir)
-            mid_filepath = os.path.join(mid_filepath, "vacs")
-            data_names.append(dir)
 
-            for subdir, dirs, files in os.walk(mid_filepath):
-                for file in files:
-                    if ("vacancies_output_" in file) and ("rate" not in file):
-                        
+min_time = find_min_steps((rootdir + "/" + dir_names[0] + "/vacs"))
+max_time = find_max_steps((rootdir + "/" + dir_names[0] + "/vacs"))
+step_time = find_step_size((rootdir + "/" + dir_names[0] + "/vacs"))
+print(f"min_time: {int(min_time)}   max_time: {int(max_time)}   step_time: {int(step_time)}")
+times = np.array([int(min_time), int(max_time)])
+times_array = np.arange(times[0], times[1]+1, step_time, dtype = int)
+dims = [130, 130, 130]
+idx = 0
+size = 0
+fig, ax = plt.subplots()
+j = 0
+iterations = 1
+num_files = int(max_time / step_time) + 1
+print(f"num_files: {num_files}")
+plot_names = []
+
+for dir in filter(os.path.isdir, os.listdir(os.getcwd())):
+    if (dir in dir_names):
+        mid_filepath = os.path.join(rootdir, dir)
+        mid_filepath = os.path.join(mid_filepath, "vacs")
+        print(mid_filepath)
+
+        for subdir, dirs, files in os.walk(mid_filepath):
+            for file in files:
+                if ("vacancies_output_" in file) and ("rate" not in file) and ("fixed" not in file):
+                    filepath = os.path.join(mid_filepath, file)
+                    size = get_size(filepath)
+                
+                break
+
+
+print(f"size: {size}")
+
+print(f"times: {times}")
+all_vacancies = np.zeros((len(dir_names), iterations, len(times), size,  3))
+all_times = np.zeros((len(dir_names), iterations, num_files))
+print(f"all_vacancies.shape: {all_vacancies.shape}")
+
+for dir in filter(os.path.isdir, os.listdir(os.getcwd())):
+    if (dir in dir_names):
+        mid_filepath = os.path.join(rootdir, dir)
+        mid_filepath = os.path.join(mid_filepath, "vacs")
+        print(mid_filepath)
+
+        for subdir, dirs, files in os.walk(mid_filepath):
+            for file in files:
+                
+                if ("vacancies_output_" in file) and ("rate" not in file) and ("fixed" not in file):
+                    
+                    line_split = file.split("_")
+                    step_time = float(line_split[4])
+                    step = int(line_split[3])
+                    iteration = int(line_split[2])
+
+                    if (step <= times[1]):
+
+                        idx = np.where(times_array == step)[0]
+                        if (len(idx) == 0): continue
+
+                        all_times[j][iteration][idx] = step_time
+                        idx += 1
+
+        j += 1
+        idx = 0
+
+j = 0
+
+for i in range(len(all_times)):  all_times[i][0] = np.sort(all_times[i][0])
+maxes = np.array([np.max(all_times[i]) for i in range(len(all_times))])
+print(f"maxes: {maxes}")
+print(f"np.min(maxes): {np.min(maxes)}")
+max_idx = np.where(maxes == np.min(maxes))[0]
+print(f"max_idx: {max_idx}")
+
+for i in range(len(all_times)): print(f"np.max(all_times[{i}]): {np.max(all_times[i])}")
+
+print(f"all_times.shape {all_times.shape}")
+time_idxs = []
+
+for i in range(len(all_times)):
+    if (all_times[i][0][-1] == np.max(all_times[max_idx][0]) ): 
+        print(f"appending len: {len(all_times[i][0]) - 1}")
+        time_idxs.append(len(all_times[i][0]) - 1) 
+    else: time_idxs.append(np.searchsorted(all_times[i][0], np.max(all_times[max_idx][0])))
+
+print(f"time_idxs: {time_idxs}")
+print(f"times_array[time_idxs[j]]: {times_array[time_idxs[j]]}")
+
+for dir in filter(os.path.isdir, os.listdir(os.getcwd())):
+    if (dir in dir_names):
+        plot_names.append(dir.strip("_centered/") + "_init")
+        plot_names.append(dir.strip("_centered/") + "_final")
+        mid_filepath = os.path.join(rootdir, dir)
+        mid_filepath = os.path.join(mid_filepath, "vacs")
+        print(mid_filepath)
+        print(f"time_idxs[j]: {time_idxs[j]}")
+        for subdir, dirs, files in os.walk(mid_filepath):
+            for file in files:
+                if ("vacancies_output_" in file) and ("rate" not in file) and ("fixed" not in file):
+                    line_split = file.split("_")
+                    step_time = float(line_split[4])
+                    step = int(line_split[3])
+                    iteration = int(line_split[2])
+                    #print(f"step: {step}")
+
+                    if ((step == times[0])):
+                        print("case 1")
+                        print(f"file: {file}")
+                        print(f"j: {j}, step: {step}")
+                        idx = 0
                         filepath = os.path.join(mid_filepath, file)
-                        line_split = file.split("_")
-                        iteration = int(line_split[2])
-                        step = int(line_split[3])
-                        step_time = float(line_split[4])
-                        idx = np.where(times == step)[0]
-                        coords = read_vac_file(filepath, size, dims)
+                        coords = read_vac_file(filepath, dims)
+                        print(f"coords.shape: {coords.shape}")
                         all_vacancies[j][iteration][idx] = coords
                         all_times[j][iteration][idx] = step_time
-            
-            print("\n")
-            j+=1
-            
+                    
+                    elif (step == times_array[time_idxs[j]]):
+                        print("case 2")
+                        print(f"file: {file}")
+                        print(f"j: {j}, step: {step}")
+                        idx = 1
+                        filepath = os.path.join(mid_filepath, file)
+                        coords = read_vac_file(filepath, dims)
+                        print(f"coords.shape: {coords.shape}")
+                        all_vacancies[j][iteration][idx] = coords
+                        all_times[j][iteration][idx] = step_time
+        
+        print("done\n")
+        j+=1
+
+print("transposing")
+
+
+mid_filepath = os.path.join(rootdir, "void_bulk_large_4NN_centered/")
+mid_filepath = os.path.join(mid_filepath, "vacs")
+filepath = os.path.join(mid_filepath, "vacancies_output_0_0_0_moves.txt")
+coords = read_vac_file(filepath, dims)
+all_vacancies[0][0][0] = coords
+all_times[0][0][0] = 0
+
+all_vacancies = np.array(all_vacancies)
+all_times = np.array(all_times)
 all_vacancies = np.transpose(all_vacancies, (0,2,1,3,4))
-k=0
+x_max = 0
+
 for i in range(len(all_vacancies)):
+    print("\n")
+    print(dir_names[i])
     all_vacancies_avg = all_vacancies[i].reshape((len(all_vacancies[i]), (len(all_vacancies[i][0])*len(all_vacancies[i][0][0])), len(all_vacancies[i][0][0][0])))
     all_vacancies_avg = np.transpose(all_vacancies_avg, (0,2,1))
-    all_times_avg = np.mean(all_times[i], axis=0)
-    averages = []
-
+   
     for j in range(len(all_vacancies_avg)):
-        averages.append(np.mean(all_vacancies_avg[j][2]))
+        new_bins = np.arange(math.floor(np.min(all_vacancies_avg[j][2])), math.ceil(np.max(all_vacancies_avg[j][2])+2), 2)
+        counts, bins = np.histogram(all_vacancies_avg[j][2], bins = new_bins)
+        if (new_bins[-1] > x_max): x_max = new_bins[-1]
+        norm_arr = np.ones_like(counts) * size * iterations
+        counts_normed = np.divide(counts, norm_arr) * 100
+        #if (j==0): print(f"all_vacancies_avg[j][2]: {all_vacancies_avg[j][2]}")
+        ax.scatter(new_bins[:-1]*(3.502/2), counts_normed, color = lines_colors[j], marker = shapes[j]) #change color = lines_colors[j] back to color = lines_colors[i]
 
-    averages = (np.ones_like(averages)*24 - averages) * (3.502/2) #inverting distance about end of unit cell (z = 15) and scaling by lattice constant (3.502A)
-
-    ax.plot(all_times_avg, averages, c=lines_colors[k])
-    k += 1
-
-ax.set_xlim(0,np.min(np.mean(all_times, axis=1)[:,-1]))
-ax.legend(data_names)
-ax.set_xlabel("Times")
-ax.set_ylabel("Averge distance (A)")
-plt.savefig(f"fastchannel_vs_pristine_avgdist_plot.png")
+xtick_labels = np.arange(0,x_max+1,1) 
+xtick_labels = np.round(xtick_labels[::15]* (3.502/2),0).astype(int)
+print(f"xtick_labels: {xtick_labels}")
+ax.legend(plot_names, loc='upper left')
+ax.set_xlabel("Averge distance from center of void (A)")
+ax.set_ylabel("Counts")
+ax.set_yscale("log")
+ax.text(5,5, f"Time: {maxes[max_idx][0]}s", fontsize = 12)
+ax.set_xticks(xtick_labels)
+ax.set_xticklabels(xtick_labels[::-1])
+#plt.show()
+#plt.savefig(f"interface_gb_dft_first_and_final_plot_variedGB.png")
+dir_out = dir_names[0].strip("/")
+plt.savefig(f"{dir_out}_first_and_final_plot.png", dpi = 95)

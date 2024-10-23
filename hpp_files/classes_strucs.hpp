@@ -119,7 +119,7 @@ public:
      * \param [in] n_keep       Number of elements to preserve in all rows of the matrix
      */
     void remove_row(size_t row, int rank) { 
-        std::cout << "rows_: " << rows_ << " row: " << row << "\n";
+        //std::cout << "rows_: " << rows_ << " row: " << row << "\n";
 
         if ((row < rows_) && (row >= 0)) {
             for (size_t row_idx = 0; row_idx < row; row_idx++) {
@@ -136,6 +136,39 @@ public:
         }
         else {
             std::cout << "ERROR: Attempted to remove row out of bounds for the matrix - row " << row << " on rank " << rank << "\n";
+            exit(0);
+        }
+    }
+
+    /*! \brief Remove row from matrix
+     * Data are copied such that the first n elements in each row remain the same before and after this operation
+     * \param [in] new_col      Desired number of columns in the enlarged matrix
+     * \param [in] n_keep       Number of elements to preserve in all rows of the matrix
+     */
+    void add_row(size_t row, int rank) { 
+        //std::cout << "rows_: " << rows_ << " row: " << row << "\n";
+        reshape((rows_ + 1), cols_);
+
+        if ((row < rows_) && (row >= 0)) {
+            for (size_t row_idx = 0; row_idx < row; row_idx++) {
+                for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
+                    (*this)(row_idx, col_idx) = (*this)(row_idx, col_idx);
+                }
+            }
+
+            //std::cout << "rank: " << rank << " vacancies_pos.print(): " << "\n"; 
+            //(*this).print();
+
+            for (size_t row_idx = (size_t)(rows_-2); row_idx > (size_t)(row-1); row_idx--) {
+                for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
+                    //std::cout << "rank: " << rank << " row_idx: " << row_idx << "\n";    
+                    //std::cout << "rank: " << rank << " (*this).rows(): " << (*this).rows() << "\n";                
+                    (*this)((size_t)(row_idx+1), col_idx) = (*this)((size_t)(row_idx), col_idx);
+                }
+            }
+        }
+        else {
+            std::cout << "ERROR: Attempted to add row out of bounds for the matrix - row " << row << " on rank " << rank << "\n";
             exit(0);
         }
     }
@@ -210,16 +243,12 @@ public:
      */
     void reshape(size_t new_rows, size_t new_cols, int rank=-1) {
         size_t new_size = new_rows * new_cols;
-        std::cout << "rank: " << rank << " new_size: " << new_size << "\n";
-        std::cout << "rank: " << rank << " tot_size_: " << tot_size_ << "\n";
         
         tot_size_ = new_size;
-        std::cout << "rank: " << rank << " pre resize \n";
         data_.resize(new_size);
             
         rows_ = new_rows;
         cols_ = new_cols;
-        std::cout << "rank: " << rank << " post resize rows: " << rows_ << " cols: " << cols_ << "\n\n";
     }
     
     /*! \return Current number of rows in matrix */
@@ -312,10 +341,10 @@ public:
     /*
     retrieve nonzero elements
     */
-    Matrix<int>* nonzero() {
+    Matrix<int> nonzero() {
         int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
         std::cout << "nonzero \n"; 
-        Matrix<int>* mat_out = new Matrix<int>(vec_size, 4);
+        Matrix<int> mat_out(vec_size, 4);
 
         int elem = 0; 
         std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n"; 
@@ -327,21 +356,21 @@ public:
                         if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
                             
                             if (elem >= (vec_size-1)) {
-                                mat_out->reshape(vec_size*2, 4);
+                                mat_out.reshape(vec_size*2, 4);
                                 vec_size = vec_size * 2;
                             }
                             
-                            (*mat_out)[elem][0] = i1;
-                            (*mat_out)[elem][1] = i2;
-                            (*mat_out)[elem][2] = i3;
-                            (*mat_out)[elem][3] = i4;
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
                             elem ++;
                         }
                     }
                 }
             }
         } 
-        mat_out->reshape(elem, 4);
+        mat_out.reshape(elem, 4);
         return mat_out;
     }
 
@@ -408,6 +437,59 @@ public:
             y = (size_t)coord[2];
             z = (size_t)coord[3];
             (*this)(w,x,y,z) = values[i];
+        }
+    }
+
+
+    Matrix<int> nonzero_elems() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        Matrix<int> mat_out(vec_size, 5);
+        mat_out.zero();
+
+        int elem = 0; 
+        //std::cout << "nonzero_elems() \n";
+        //std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n";
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0 ) {
+                            //std::cout << "i1: " << i1 << " i2: " << i2 << " i3: " << i3 << " i4: " << i4 << " elem: " << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) << "\n";
+                            
+                            if (elem >= (vec_size-1)) {
+                                mat_out.reshape(vec_size*2, 5);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            mat_out[elem][4] = (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4);
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        } 
+        mat_out.reshape(elem, 5);
+        //std::cout << "nonzero elem: " << elem << "\n";
+        return mat_out;
+    }
+    
+    /*
+    set all elements in data field to zero
+    */
+    void zero() {
+        for (int i1=0; i1<len1_; i1++) {
+            for (int i2=0; i2<len2_; i2++) {
+                for (int i3=0; i3<len3_; i3++) {
+                    for (int i4=0; i4<len4_; i4++) {
+                        (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) = 0;
+                    }
+                }
+            }    
         }
     }
 
@@ -504,11 +586,11 @@ public:
     retrieve nonzero elements
     */
     Matrix<int> nonzero() {
-        std::cout << "nonzero enter \n";
+        //std::cout << "nonzero enter \n";
         int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
-        std::cout << "vec_size: " << vec_size << " \n";
+        //std::cout << "vec_size: " << vec_size << " \n";
         Matrix<int> mat_out(vec_size, 4);
-        std::cout << "nonzero matrix initialized \n";
+        //std::cout << "nonzero matrix initialized \n";
 
         int elem = 0; 
         
@@ -520,9 +602,9 @@ public:
                             
                             if (elem >= (vec_size-2)) {
 
-                                std::cout << "reshaping in loop: \n";
+                                //std::cout << "reshaping in loop: \n";
                                 mat_out.reshape(vec_size*2, 4);
-                                std::cout << "reshaped \n";
+                                //std::cout << "reshaped \n";
                                 vec_size = vec_size * 2;
                             }
                             
@@ -537,19 +619,18 @@ public:
             }
         } 
         
-        std::cout << "reshaping: \n";
+        //std::cout << "reshaping: \n";
         mat_out.reshape(elem, 4);
-        std::cout << "nonzero elem: " << elem << "\n";
+        //std::cout << "nonzero elem: " << elem << "\n";
         return mat_out;
     }
 
     /*
     retrieve nonzero elements
     */
-    /*
-    std::vector< std::vector<int> > nonzero() {
+    Matrix<int> nonzero_elems() {
         int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
-        Matrix<int>* mat_out = new Matrix<int>(vec_size, 4);
+        Matrix<int> mat_out(vec_size, 5);
 
         int elem = 0; 
         
@@ -557,28 +638,27 @@ public:
             for (int i2=0; i2<(int)len2_; i2++) {
                 for (int i3=0; i3<(int)len3_; i3++) {
                     for (int i4=0; i4<(int)len4_; i4++) {
-                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0 ) {
                             
                             if (elem >= (vec_size-1)) {
-                                mat_out->reshape(vec_size*2, 4);
+                                mat_out.reshape(vec_size*2, 5);
                                 vec_size = vec_size * 2;
                             }
                             
-                            (*mat_out)[elem][0] = i1;
-                            (*mat_out)[elem][1] = i2;
-                            (*mat_out)[elem][2] = i3;
-                            (*mat_out)[elem][3] = i4;
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            mat_out[elem][4] = (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4);
                             elem ++;
                         }
                     }
                 }
             }
         } 
-        mat_out->reshape(elem, 4);
-        std::cout << "nonzero elem: " << elem << "\n";
+        mat_out.reshape(elem, 5);
         return mat_out;
     }
-    */
 
     /*
     set all elements in data field to zero

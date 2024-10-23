@@ -74,7 +74,6 @@ a2 = [-1,1,1]
 a3 = [1,-1,1]
 pwd = os.getcwd()
 rootdir = os.path.join(pwd, "vacs")
-size = 4399
 dims = [130,130,130]
 nums_frames = 1000
 frames = np.arange(0,nums_frames,1)
@@ -94,7 +93,7 @@ else:
 
 for subdir, dirs, files in os.walk(rootdir):
     for file in files:
-        if ("vacancies_output_" in file) and ("rate" not in file) and ("_0_" in file) and ("00000_" in file):
+        if ("vacancies_output_" in file) and ("rate" not in file) and ("_0_" in file) and ("000000_" in file):
             line_split = file.split("_")
             times.append(int(line_split[3]))
             filepaths.append(os.path.join(rootdir, file))
@@ -114,3 +113,4 @@ for i in frames:
     write_expanded_vac_file(filepath_out, coords)
 
 fix_cell_edges.run_fix_edges()
+

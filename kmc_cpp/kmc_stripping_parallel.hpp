@@ -3635,7 +3635,7 @@ std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::ve
 
     if (lines[read_idx].find(substring) != std::string::npos) {
         read_idx ++;
-        add_reg_struct regions_tuple = init_regions(slice_1Dvec_str_inp(lines, read_idx, (int)lines.size()), dims_int, num_regions, region_infile); 
+        add_reg_struct regions_tuple = init_regions(slice_1Dvec_str(lines, read_idx, (int)lines.size()), dims_int, num_regions, region_infile); 
         std::cout << "region!\n";
         incriment = regions_tuple.get_idx(); temp_regions = regions_tuple.get_regions(); temp_region_sites = regions_tuple.get_region_sites();
     }

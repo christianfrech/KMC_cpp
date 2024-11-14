@@ -7,8 +7,27 @@
 #include <fstream>
 #include "print_func.hpp"
 
+/*
+template <typename A, typename B>
+A vect_create_2D(size_t N, size_t M) {
+    A vec_out(N);
 
-std::vector< std::vector<int> > vect_create_2D(size_t N, size_t M, double val) {
+    for(int i = 0; i < (int)N; i++) { 
+        vec_out[i] = B(M);
+    }
+
+    return vec_out;
+}
+
+template <typename A, typename B, typename C>
+A vect_create_3D_float(int L, int N, int M) {
+
+    std::vector< std::vector< std::vector<double> > > vec_out(L, std::vector< std::vector<double> >(N, std::vector<double>(M, 0)));
+    return vec_out;
+}
+*/
+
+std::vector< std::vector<int> > vect_create_2D(size_t N, size_t M) {
     std::vector< std::vector<int> > vec_out(N);
 
     for(int i = 0; i < (int)N; i++) { 
@@ -65,12 +84,13 @@ std::vector<int> vec_where_1D(std::vector<int> vec1, int value) {
     int len1 = vec1.size();
 
     for (int i=0;i<len1;i++) { 
-        curr = vec1[i];
-        if (curr == value) {
-            coordinates.push_back(i);
-        } 
-    }
-        
+            curr = vec1[i];
+            if (curr == value) {
+                coordinates.push_back(i);
+            } 
+        }
+    //std::cout << "coordinates: \n";
+    //print_1Dvector(coordinates);
     return coordinates;
 }
 
@@ -231,6 +251,7 @@ std::vector< std::vector<int> > FourD_idxs(std::vector<int> start_vec, std::vect
         for (int j=start_vec[1]; j<(int)(end_vec[1]); j++) {
             for (int k=start_vec[2]; k<((int)end_vec[2]); k++) {
                 for (int l=start_vec[3]; l<(int)(end_vec[3]); l++) { 
+                    //std::cout << "[ " << i << " " << j << " " << k << " " << l << " ] \n";
                     idx = {i, j, k, l};
                     idxs.push_back(idx);
                 }
@@ -299,7 +320,7 @@ std::vector<double> slice_1Dvec_float(std::vector<double> vec, int i1_start, int
     }
     return vec;
 }
-/*
+
 std::vector<std::string> slice_1Dvec_str(std::vector<std::string> vec, int i1_start, int i1_end) {
     int size1 = i1_end - i1_start;
     std::vector<std::string> slice(size1);
@@ -310,7 +331,6 @@ std::vector<std::string> slice_1Dvec_str(std::vector<std::string> vec, int i1_st
     }
     return slice;
 }
-*/
 
 int find_max_element(std::vector<double> * max_rates) {
     int max_idx;
@@ -390,19 +410,11 @@ Matrix<int> comparison(Matrix<int> &mat1, Matrix<int> &mat2) {
         } 
     }
     
+    //std::cout << "reshaping: \n";
     mat_out.reshape((idx), 4);
+    //std::cout << "nonzero elem: " << elem << "\n";
     return mat_out;
 }
-
-template <typename T, , typename U>
-bool is_in(T v, U sub_v) {
-    for (int i=0; i<(int)v.size(); i++) {
-        if (v[i] == sub_v) {return true;}
-    }
-    
-    return false;
-}
-
 
 bool is_in(std::vector<std::vector<size_t>> v, std::vector<size_t> sub_v) {
     for (int i=0; i<(int)v.size(); i++) {
@@ -436,20 +448,3 @@ bool is_in(std::vector< int > check_vec, int elem) {
     }
     return false;
 }
-
-/*
-template<typename Container>
-void is_in(const Container &c)
-{
-    for (const auto &i:c)
-    {
-        read_vectors(i);
-    }
-}
-
-template<>
-void is_in(const vector<int> &container){
-    for(auto i:container)
-        cout<<i<<endl;
-}
-*/

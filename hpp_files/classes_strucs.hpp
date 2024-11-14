@@ -1,14 +1,14 @@
 #include <iostream>
 #include <sstream>
 #include <stdio.h>
-#include <assert.h> 
-#include <array> 
+#include <assert.h>
+#include <array>
 #include <random>
 #include <string>
 #include <vector>
 #include <cstdlib>
-#include <tuple>        
-#include <numeric>  
+#include <tuple>
+#include <numeric>
 #include <fstream>
 #include <map>
 #include <cmath>
@@ -16,6 +16,7 @@
 #include <chrono>
 #include <execution>
 #include <cstdint>
+#include <filesystem>
 
 #define CEILING(x,y) ((x + y - 1) / y)
 
@@ -50,7 +51,7 @@ class Region {
         std::vector< std::vector<int> > params;
         
         /*! \brief energy barriers associated with region, structured as a multi-dimensional vector */
-        std::vector< std::vector< std::vector<double> > > energies; 
+        std::vector< std::vector< std::vector<double> > > energies;
 
         /*! 
          *  \brief Constructs a Region object
@@ -63,7 +64,7 @@ class Region {
          *  \param params_in Parameter set used to initialize region attributes
          */
         Region(int id_in, std::string reg_type, std::vector< std::vector<int> > params_in):
-        id(id_in), 
+        id(id_in),
         type(reg_type),
         params(params_in)
         {
@@ -134,11 +135,11 @@ public:
      * \param [in] col Column index of element
      * \return Value of matrix element
      */
-    mat_type operator() (size_t row, size_t col) const {
+    mat_type  operator() (size_t row, size_t col) const {
         return data_[cols_ * row + col];
     }
     
-    /*! \brief Set all matrix elements to zero */
+    /*! \brief Zero all matrix elements */
     void zero() {
         std::fill(data_.begin(), data_.end(), 0);
     }
@@ -166,16 +167,24 @@ public:
      * \param [in] row Row index to be removed
      * \param [in] rank Processor rank (for error handling)
      */
-    void remove_row(size_t row, int rank) { 
+    void remove_row(size_t row, int rank) {
+        //std::cout << "rows_: " << rows_ << " row: " << row << "\n";
+
         if ((row < rows_) && (row >= 0)) {
-            for (size_t row_idx = row; row_idx < rows_ - 1; ++row_idx) {
-                for (size_t col_idx = 0; col_idx < cols_; ++col_idx) {
-                    (*this)(row_idx, col_idx) = (*this)(row_idx + 1, col_idx);
+            for (size_t row_idx = 0; row_idx < row; row_idx++) {
+                for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
+                    (*this)(row_idx, col_idx) = (*this)(row_idx, col_idx);
                 }
             }
-            reshape(rows_ - 1, cols_);
-        } else {
-            std::cout << "ERROR: Attempted to remove row out of bounds - row " << row << " on rank " << rank << "\n";
+            for (size_t row_idx = (size_t)(row+1); row_idx < rows_; row_idx++) {
+                for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
+                    (*this)((size_t)(row_idx-1), col_idx) = (*this)(row_idx, col_idx);
+                }
+            }
+            reshape((rows_ - 1), cols_);
+        }
+        else {
+            std::cout << "ERROR: Attempted to remove row out of bounds for the matrix - row " << row << " on rank " << rank << "\n";
             exit(0);
         }
     }
@@ -185,90 +194,375 @@ public:
      * \param [in] row Position where the row should be added
      * \param [in] rank Processor rank (for error handling)
      */
-    void add_row(size_t row, int rank) { 
-        reshape(rows_ + 1, cols_);
-        if ((row < rows_) && (row >= 0)) {
-            for (size_t row_idx = rows_ - 1; row_idx > row; --row_idx) {
-                for (size_t col_idx = 0;
+    void add_row(size_t row, int rank) {
+        //std::cout << "rows_: " << rows_ << " row: " << row << "\n";
+        reshape((rows_ + 1), cols_);
 
+        if ((row < rows_) && (row >= 0)) {
+            for (size_t row_idx = 0; row_idx < row; row_idx++) {
+                for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
+                    (*this)(row_idx, col_idx) = (*this)(row_idx, col_idx);
+                }
+            }
+
+            //std::cout << "rank: " << rank << " vacancies_pos.print(): " << "\n";
+            //(*this).print();
+
+            for (size_t row_idx = (size_t)(rows_-2); row_idx > (size_t)(row-1); row_idx--) {
+                for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
+                    //std::cout << "rank: " << rank << " row_idx: " << row_idx << "\n";
+                    //std::cout << "rank: " << rank << " (*this).rows(): " << (*this).rows() << "\n";
+                    (*this)((size_t)(row_idx+1), col_idx) = (*this)((size_t)(row_idx), col_idx);
+                }
+            }
+        }
+        else {
+            std::cout << "ERROR: Attempted to add row out of bounds for the matrix - row " << row << " on rank " << rank << "\n";
+            exit(0);
+        }
+    }
+
+    /*! \brief Remove row from col
+     * Data are copied such that the first n elements in each row remain the same before and after this operation
+     * \param [in] new_col      Desired number of columns in the enlarged matrix
+     * \param [in] n_keep       Number of elements to preserve in all rows of the matrix
+     */
+    void remove_col(size_t col, int rank) {
+        std::cout << "cols_: " << cols_ << " col: " << col << "\n";
+
+        if ((col < cols_) && (col >= 0)) {
+            for (size_t row_idx = 0; row_idx < rows_; row_idx++) {
+                for (size_t col_idx = 0; col_idx < col; col_idx++) {
+                    (*this)(row_idx, col_idx) = (*this)(row_idx, col_idx);
+                }
+            }
+            for (size_t row_idx = 0; row_idx < rows_; row_idx++) {
+                for (size_t col_idx = (size_t)(col+1); col_idx < cols_; col_idx++) {
+                    (*this)(row_idx, (size_t)(col_idx-1)) = (*this)(row_idx, col_idx);
+                }
+            }
+            reshape(rows_, (cols_ - 1));
+        }
+        else {
+            std::cout << "ERROR: Attempted to remove col out of bounds for the matrix - col " << col << " on rank " << rank << "\n";
+            exit(0);
+        }
+    }
+        
+    /*! \brief Increase number of columns in the matrix
+     * Data are copied such that the first n[i] elements in each row remain the same before and after this operation
+     * \param [in] new_col      Desired number of columns in the enlarged matrix
+     * \param [in] n_keep       Number of elements to preserve in each row of the matrix (should have \p rows_ elements)
+     */
+    void enlarge_cols(size_t new_col, int *n_keep) {
+        if (new_col > cols_) {
+            size_t old_cols = cols_;
+            reshape(rows_, new_col);
+            
+            size_t row_idx;
+            for (row_idx = rows_; row_idx > 0; row_idx--) {
+                auto begin = data_.begin();
+                std::copy_backward(begin + (row_idx - 1) * old_cols, begin + (row_idx - 1) * old_cols + n_keep[row_idx - 1], begin + (row_idx - 1) * new_col + n_keep[row_idx - 1]);
             }
         }
     }
+    
+    /*! \brief Increase number of columns in the matrix
+     * Data are copied such that the first n elements in each row remain the same before and after this operation
+     * \param [in] new_col      Desired number of columns in the enlarged matrix
+     * \param [in] n_keep       Number of elements to preserve in all rows of the matrix
+     */
+    void enlarge_cols(size_t new_col, int n_keep) {
+        if (new_col > cols_) {
+            size_t old_cols = cols_;
+            reshape(rows_, new_col);
+            
+            size_t row_idx;
+            for (row_idx = rows_; row_idx > 0; row_idx--) {
+                auto begin = data_.begin();
+                std::copy_backward(begin + (row_idx - 1) * old_cols, begin + (row_idx - 1) * old_cols + n_keep, begin + (row_idx - 1) * new_col + n_keep);
+            }
+        }
+    }
+
+    
+    /*! \brief Change the dimensions without moving any of the data
+     * \param [in] new_rows     Desired number of rows in the reshaped matrix
+     * \param [in] new_cols     Desired number of columns in the reshaped matrix
+     */
+    void reshape(size_t new_rows, size_t new_cols, int rank=-1) {
+        size_t new_size = new_rows * new_cols;
+        
+        if (new_size > tot_size_) {
+            tot_size_ = new_size;
+            data_.resize(tot_size_);
+        }
+            
+        rows_ = new_rows;
+        cols_ = new_cols;
+    }
+    
+    /*! \return Current number of rows in matrix */
+    size_t rows() const {
+        return rows_;
+    }
+
+    /*! \return Current number of columns in matrix*/
+    size_t cols() const {
+        return cols_;
+    }
+    
+    /*! \return Pointer to the data in the matrix*/
+    mat_type *data() const {
+        return (mat_type *) data_.data();
+    }
+    
+    void copy_from(Matrix<mat_type> &mat) {
+        std::copy(mat.data_.begin(), mat.data_.end(), data_.begin());
+    }
+    
+    void print() {
+        std::cout << "[ ";
+        for (int m=0; m<(int)rows_; m++) {
+            std::cout << "[ ";
+            for (int n=0; n<(int)cols_; n++) {
+                std::cout << (*this)((size_t)m, (size_t)n)  << " ";
+            }
+            std::cout << "] ";
+            std::cout << "\n  ";
+        }
+        std::cout << "] \n\n";
+    }
+    
+private:
+    size_t rows_, cols_, tot_size_;
+    std::vector<mat_type> data_;
 };
 
 /*! \brief A class for storing 4-D arrays of integers. */
 class FourDArr {
 public:
-    /*! \brief Constructor.
-     * \param [in] len1 The length of the first dimension.
-     * \param [in] len2 The length of the second dimension.
-     * \param [in] len3 The length of the third dimension.
-     * \param [in] len4 The length of the fourth dimension.
+    /*! \brief Constructor
+     * \param [in] len1 len2 len3 len4    Lengths of the 4 dimensions of the array
      */
-    FourDArr(size_t len1, size_t len2, size_t len3, size_t len4);
 
-    /*! \brief Access an element of the 4-D array.
-     * \param [in] i1 First index.
-     * \param [in] i2 Second index.
-     * \param [in] i3 Third index.
-     * \param [in] i4 Fourth index.
-     * \return Reference to array element.
+    std::vector<size_t> size_vec;
+
+    FourDArr(size_t len1, size_t len2, size_t len3, size_t len4)
+    : len1_(len1)
+    , len2_(len2)
+    , len3_(len3)
+    , len4_(len4)
+    {
+        data_ = (int *)malloc(sizeof(int) * len1 * len2 * len3 * len4);
+        size_vec.push_back(len1);
+        size_vec.push_back(len2);
+        size_vec.push_back(len3);
+        size_vec.push_back(len4);
+    }
+    
+    /*! \brief Access an element of the 4-D array
+     * \param [in] i1 First index
+     * \param [in] i2 Second index
+     * \param [in] i3 Third index
+     * \param [in] i4 Fourth index
+     * \returns Reference to array element
      */
-    int& operator()(size_t i1, size_t i2, size_t i3, size_t i4);
+    int& operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
+        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
+    }
+    
+    int  operator() (size_t i1, size_t i2, size_t i3, size_t i4) const {
+        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
+    }
 
-    /*! \brief Access an element of the 4-D array (const).
-     * \param [in] i1 First index.
-     * \param [in] i2 Second index.
-     * \param [in] i3 Third index.
-     * \param [in] i4 Fourth index.
-     * \return Array element.
-     */
-    int operator()(size_t i1, size_t i2, size_t i3, size_t i4) const;
+    /*! \brief Destructor*/
+    ~FourDArr() {
+        free(data_);
+    }
+    
+    FourDArr(const FourDArr& m) = delete;
+    
+    FourDArr& operator= (const FourDArr& m) = delete;
+    
+    /*! \returns pointer to 0th element in the array */
+    int *data() {
+        return data_;
+    }
+    /*
+    retrieve nonzero elements
+    */
+    Matrix<int> nonzero() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        std::cout << "nonzero \n";
+        Matrix<int> mat_out(vec_size, 4);
 
-    /*! \brief Destructor to free allocated memory. */
-    ~FourDArr();
+        int elem = 0;
+        std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n";
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
+                            
+                            if (elem >= (vec_size-1)) {
+                                mat_out.reshape(vec_size*2, 4);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        }
+        mat_out.reshape(elem, 4);
+        return mat_out;
+    }
 
-    /*! \brief Returns a pointer to the 0-index element in the array.
-     * \return Pointer to the first element.
-     */
-    int* data();
+    /*
+    print data field of a FourDArr object
+    */
+    void print_4Dvector() {
+        std::cout << "\n[ ";
+        for (int i1=0; i1<(int)len1_; i1++) {
+            std::cout << "[ ";
+            for (int i2=0; i2<(int)len2_; i2++) {
+                std::cout << "[ ";
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    std::cout << "[ ";
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
+                    }
+                    std::cout << "] ";
+                    std::cout << "\n  ";
+                }
+                std::cout << "] ";
+                std::cout << "\n  ";
+            }
+            std::cout << "] ";
+            std::cout << "\n  ";
+        }
+        std::cout << "] \n\n";
+    }
 
-    /*! \brief Retrieve nonzero elements.
-     * \return A matrix containing indices of non-zero elements.
-     */
-    Matrix<int> nonzero();
+    /*
+    retrieve elements to a 1D slice of a FourDArr object corresponding to coordinates input
+    */
+    std::vector<int> grab_idxs(std::vector< std::vector<int> > coords) {
+        std::vector<int> output;
 
-    /*! \brief Print FourDArr object. */
-    void print_4Dvector();
+        for (int i=0; i<(int)coords.size(); i++) {
+            std::vector<int> coord = coords[i];
+            int w = coord[0];
+            int x = coord[1];
+            int y = coord[2];
+            int z = coord[3];
 
-    /*! \brief Retrieve elements of FourDArr the based on vector of input coordinates.
-     * \param [in] coords Coordinates of elements to retrieve.
-     * \return Vector of values at the specified coordinates.
-     */
-    std::vector<int> grab_idxs(const std::vector<std::vector<int>>& coords);
+            int value = (int)(*this)(w,x,y,z);
+            output.push_back(value);
+        }
+        return output;
+    }
 
-    /*! \brief Assign values to 4-D array based on input coordinates.
-     * \param [in] coords Coordinates of elements to assign.
-     * \param [in] values Values to assign at specified coordinates.
-     */
-    void assign_idxs(const std::vector<std::vector<int>>& coords, const std::vector<int>& values);
+    /*
+    assign elements to a 1D slice of a FourDArr object corresponding to values input
+    */
+    void assign_idxs(std::vector< std::vector<int> > coords, std::vector<int> values) {
+        size_t w;
+        size_t x;
+        size_t y;
+        size_t z;
+        
+        
 
-    /*! \brief Retrieve nonzero elements with their values from the 4-D array.
-     * \return A matrix containing indices and values of non-zero elements.
-     */
-    Matrix<int> nonzero_elems();
+        for (int i=0; i<(int)coords.size(); i++) {
+            std::vector<int> coord = coords[i];
+            w = (size_t)coord[0];
+            x = (size_t)coord[1];
+            y = (size_t)coord[2];
+            z = (size_t)coord[3];
+            (*this)(w,x,y,z) = values[i];
+        }
+    }
 
-    /*! \brief Set all elements in the data field to zero. */
-    void zero();
 
-    std::vector<size_t> size_vec; ///< Vector storing the sizes of each dimension.
+    Matrix<int> nonzero_elems() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        Matrix<int> mat_out(vec_size, 5);
+        mat_out.zero();
+
+        int elem = 0;
+        //std::cout << "nonzero_elems() \n";
+        //std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n";
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0 ) {
+                            //std::cout << "i1: " << i1 << " i2: " << i2 << " i3: " << i3 << " i4: " << i4 << " elem: " << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) << "\n";
+                            
+                            if (elem >= (vec_size-1)) {
+                                mat_out.reshape(vec_size*2, 5);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            mat_out[elem][4] = (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4);
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        }
+        mat_out.reshape(elem, 5);
+        //std::cout << "nonzero elem: " << elem << "\n";
+        return mat_out;
+    }
+    
+    /*
+    set all elements in data field to zero
+    */
+    void zero() {
+        for (int i1=0; i1<len1_; i1++) {
+            for (int i2=0; i2<len2_; i2++) {
+                for (int i3=0; i3<len3_; i3++) {
+                    for (int i4=0; i4<len4_; i4++) {
+                        (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    void check_elems() {
+
+        //std::cout << "check_elems()\n";
+        for (int i1=0; i1<len1_; i1++) {
+            for (int i2=0; i2<len2_; i2++) {
+                for (int i3=0; i3<len3_; i3++) {
+                    for (int i4=0; i4<len4_; i4++) {
+                        if ((*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0) {
+                            //td::cout << "i1: " << i1 << " i2: " << i2 << " i3: " << i3 << " i4: " << i4 << " elem: " << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) << "\n";
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 private:
-    size_t len1_; ///< Length of the first dimension.
-    size_t len2_; ///< Length of the second dimension.
-    size_t len3_; ///< Length of the third dimension.
-    size_t len4_; ///< Length of the fourth dimension.
-    int* data_; ///< Pointer to the data stored in the array.
+    size_t len1_, len2_, len3_, len4_; ///< Dimensions of the array
+    int* data_; ///< The data stored in the array
 };
 
 
@@ -334,7 +628,7 @@ class FourDBoolArr {
          */
         operator bool() const noexcept { return get(); }
     };
-
+    
 public:
     std::vector<size_t> size_vec; ///< Vector storing the sizes of each dimension.
 
@@ -363,68 +657,163 @@ public:
         size_t flat_idx = i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4;
         size_t coarse_idx = flat_idx / 8;
         size_t fine_idx = flat_idx % 8;
-        return BoolReference(data_[coarse_idx], fine_idx);
+        BoolReference ref(data_[coarse_idx], fine_idx);
+        return ref;
+    }
+    
+    /*
+    print elements of data field
+    */
+    void print() {
+        std::cout << "\n[ ";
+        for (int i1=0; i1<(int)len1_; i1++) {
+            std::cout << "[ ";
+            for (int i2=0; i2<(int)len2_; i2++) {
+                std::cout << "[ ";
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    std::cout << "[ ";
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
+                    }
+                    std::cout << "] ";
+                    std::cout << "\n  ";
+                }
+                std::cout << "] ";
+                std::cout << "\n  ";
+            }
+            std::cout << "] ";
+            std::cout << "\n  ";
+        }
+        std::cout << "] \n\n";
+    }
+    
+    /*
+    retrieve nonzero elements
+    */
+    Matrix<int> nonzero() {
+        //std::cout << "nonzero enter \n";
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        //std::cout << "vec_size: " << vec_size << " \n";
+        Matrix<int> mat_out(vec_size, 4);
+        //std::cout << "nonzero matrix initialized \n";
+
+        int elem = 0;
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
+                            
+                            if (elem >= (vec_size-2)) {
+
+                                //std::cout << "reshaping in loop: \n";
+                                mat_out.reshape(vec_size*2, 4);
+                                //std::cout << "reshaped \n";
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        //std::cout << "reshaping: \n";
+        mat_out.reshape(elem, 4);
+        //std::cout << "nonzero elem: " << elem << "\n";
+        return mat_out;
     }
 
-    /*! \brief Print elements of the data field. */
-    void print();
+    /*
+    retrieve nonzero elements
+    */
+    Matrix<int> nonzero_elems() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        Matrix<int> mat_out(vec_size, 5);
 
-    /*! \brief Retrieve nonzero elements of the array.
-     * \return A matrix of indices for nonzero elements.
-     */
-    Matrix<int> nonzero();
+        int elem = 0;
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0 ) {
+                            
+                            if (elem >= (vec_size-1)) {
+                                mat_out.reshape(vec_size*2, 5);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            mat_out[elem][4] = (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4);
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        }
+        mat_out.reshape(elem, 5);
+        return mat_out;
+    }
 
-    /*! \brief Retrieve nonzero elements along with their values.
-     * \return A matrix containing indices and values of nonzero elements.
-     */
-    Matrix<int> nonzero_elems();
+    /*
+    set all elements in data field to zero
+    */
+    void zero() {
+        std::fill(data_.begin(), data_.end(), 0);
+    }
 
-    /*! \brief Set all elements in the data field to zero. */
-    void zero();
 };
 
 
 /*! \brief Structure for managing regions and site data. */
 struct add_reg_struct {
-public:
-    /*! \brief Constructor
-     * \param [in] idx Index of the structure.
-     * \param [in] regions Vector of pointers to Region objects.
-     * \param [in] region_sites Pointer to a FourDArr containing region sites data.
-     */
-    add_reg_struct(int idx, std::vector<Region*> regions, FourDArr* region_sites)
-        : idx_(idx) {
-        regions_ = regions;
-        region_sites_ = region_sites;
-        std::cout << "regions.size(): " << regions.size() << "\n";
-        std::cout << "regions_.size(): " << regions_.size() << "\n";
-    }
+    public:
+        /*! \brief Constructor
+        * \param [in] len1 len2 len3 len4    Lengths of the 4 dimensions of the array
+        */
 
-    /*! \brief Get the idx field.
-     * \return Integer value of index into vector of lines read in from input file.
-     */
-    int get_idx() const { return idx_; }
+        int idx_;
 
-    /*! \brief Get the regions vector.
-     * \return Vector of Region pointers.
-     */
-    std::vector<Region*> get_regions() const { return regions_; }
+        add_reg_struct(int idx , std::vector<Region*> regions, FourDArr* region_sites):
+            idx_(idx)
+            {
+                regions_ = regions;
+                region_sites_ = region_sites;
+                std::cout << "regions.size(): " << regions.size() << "\n";
+                std::cout << "regions_.size(): " << regions_.size() << "\n";
+            }
 
-    /*! \brief Get the region_sites field.
-     * \return Pointer to the FourDArr containing region site data.
-     */
-    FourDArr* get_region_sites() const { return region_sites_; }
+        /*! \return get idx field of struc */
+        int get_idx() const {
+            return idx_;
+        }
 
-private:
-    int idx_; ///< Index into the vector of lines from input file to be read.
-    std::vector<Region*> regions_; ///< Vector containing pointers to Region objects.
-    FourDArr* region_sites_; ///< Pointer to the FourDArr with sites occupied by ids 
-                             /// correpsonding to bounds of regions.
+        /*! \return get regions field of struc */
+        std::vector<Region*> get_regions() const {
+            return regions_;
+        }
+
+        /*! \return get regions_sites field of struc */
+        FourDArr* get_region_sites() const {
+            return region_sites_;
+        }
+        
+    private:
+        std::vector<Region*> regions_; FourDArr* region_sites_;
 };
 
 typedef struct add_reg_struct add_reg_struct;
 
-/*! \brief Structure for storing lattice simulation results. */
 struct lattice_return_struct {
 public:
     /*! \brief Constructor

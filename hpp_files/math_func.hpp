@@ -27,7 +27,7 @@ int exp_int(int base, int exponent) {
 double sum_float(std::vector<double> vec) {
     double sum = 0;
     for (int i=0; i<(int)vec.size(); i++) {
-        sum += vec[i]; 
+        sum += vec[i];
         
         }
 
@@ -42,9 +42,9 @@ int NCR(int n, int r) {
      using property:
      N choose R = N choose (N-R)
     */
-    if (r > n / 2) return NCR(n, n - r); 
+    if (r > n / 2) return NCR(n, n - r);
 
-    long res = 1; 
+    long res = 1;
 
     for (int k = 1; k <= r; ++k)
     {
@@ -57,19 +57,21 @@ int NCR(int n, int r) {
 
 int find_gcf(int a, int b) {
     std::cout << "a: " << a << " b: " << b << "\n";
-    // Everything divides 0 
-    if (a == 0) 
-        return b; 
-    if (b == 0) 
-        return a; 
+    // Everything divides 0
+    if (a == 0)
+        return b;
+    
+    if (b == 0)
+        return a;
+    
+    // base case
+    if (a == b)
+        return a;
   
-    // base case 
-    if (a == b) 
-        return a; 
-  
-    // a is greater 
-    if (a > b) 
-        return find_gcf(a - b, b); 
+    // a is greater
+    if (a > b)
+        return find_gcf(a - b, b);
+        
     return find_gcf(a, b - a);
 }
 

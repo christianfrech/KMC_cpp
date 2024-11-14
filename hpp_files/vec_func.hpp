@@ -12,7 +12,7 @@ template <typename A, typename B>
 A vect_create_2D(size_t N, size_t M) {
     A vec_out(N);
 
-    for(int i = 0; i < (int)N; i++) { 
+    for(int i = 0; i < (int)N; i++) {
         vec_out[i] = B(M);
     }
 
@@ -30,7 +30,7 @@ A vect_create_3D_float(int L, int N, int M) {
 std::vector< std::vector<int> > vect_create_2D(size_t N, size_t M) {
     std::vector< std::vector<int> > vec_out(N);
 
-    for(int i = 0; i < (int)N; i++) { 
+    for(int i = 0; i < (int)N; i++) {
         vec_out[i] = std::vector<int>(M);
     }
 
@@ -41,7 +41,6 @@ std::vector< std::vector<double> > vect_create_2D_float(size_t N, size_t M, doub
     std::vector<std::vector<double>> vec_out(N, std::vector<double>(M, val));
     return vec_out;
 }
-
 
 std::vector<int> create_vec_1D(int size, int value) {
     std::vector<int> vec(size, value);
@@ -78,32 +77,31 @@ std::vector< std::vector<int> > int_transpose(std::vector< std::vector<int> > sr
     return dst;
 }
 
-std::vector<int> vec_where_1D(std::vector<int> vec1, int value) {  
+std::vector<int> vec_where_1D(std::vector<int> vec1, int value) {
     std::vector<int> coordinates;
     int curr;
     int len1 = vec1.size();
 
-    for (int i=0;i<len1;i++) { 
+    for (int i=0;i<len1;i++) {
             curr = vec1[i];
             if (curr == value) {
                 coordinates.push_back(i);
-            } 
+            }
         }
     //std::cout << "coordinates: \n";
     //print_1Dvector(coordinates);
     return coordinates;
 }
 
-
 std::vector< std::vector<int> > grab_idxs_2D_int_inp(std::vector< std::vector<int> > vec, std::vector<int> coords) {
     std::vector< std::vector<int> > temp_vec;
     int len = (int)coords.size();
     int coord;
 
-    for (int i=0;i<len;i++) { 
+    for (int i=0;i<len;i++) {
         coord = coords[i];
-        temp_vec.push_back(vec[coord]); 
-    } 
+        temp_vec.push_back(vec[coord]);
+    }
     for (int i=0;i<len;i++) {
         vec[i] = temp_vec[i];
     }
@@ -115,10 +113,10 @@ std::vector< std::vector<int> > grab_idxs_2D_int(std::vector< std::vector<int> >
     std::vector< std::vector<int> > output;
     int len = coords.size();
 
-    for (int i=0;i<len;i++) { 
-	    int coord = coords[i];
+    for (int i=0;i<len;i++) {
+        int coord = coords[i];
         output.push_back(vec[coord]);
-    } 
+    }
 
     return output;
 }
@@ -128,19 +126,18 @@ T grab_idxs_2D(T vec, U coords) {
     T output;
     int len = coords.size();
 
-    for (int i=0;i<len;i++) { 
-	    int coord = coords[i];
+    for (int i=0;i<len;i++) {
+        int coord = coords[i];
         output.push_back(vec[coord]);
-    } 
+    }
 
     return output;
 }
 
-
 template <typename T>
 T slice_1Dvec(T vec, int i1_start, int i1_end) {
     int size = i1_end - i1_start;
-    for (int i=0; i<size; i++) { 
+    for (int i=0; i<size; i++) {
         vec[i] = vec[i+i1_start];
     }
     vec.resize(size);
@@ -151,7 +148,7 @@ std::vector<double> slice_1Dvec(std::vector<double> vec, int i1_start, int i1_en
     int size1 = i1_end - i1_start;
     std::vector<double> slice(size1);
 
-    for (int i=i1_start; i<i1_end; i++) { 
+    for (int i=i1_start; i<i1_end; i++) {
         slice[i] = vec[i];
     }
     return slice;
@@ -159,7 +156,7 @@ std::vector<double> slice_1Dvec(std::vector<double> vec, int i1_start, int i1_en
 
 std::vector<std::string> slice_1Dvec(std::vector<std::string> vec, int i1_start, int i1_end) {
     int size = i1_end - i1_start;
-    for (int i=0; i<size; i++) { 
+    for (int i=0; i<size; i++) {
         vec[i] = vec[i+i1_start];
     }
     vec.resize(size);
@@ -250,7 +247,7 @@ std::vector< std::vector<int> > FourD_idxs(std::vector<int> start_vec, std::vect
     for (int i=start_vec[0]; i<(int)(end_vec[0] + 1); i++) {
         for (int j=start_vec[1]; j<(int)(end_vec[1]); j++) {
             for (int k=start_vec[2]; k<((int)end_vec[2]); k++) {
-                for (int l=start_vec[3]; l<(int)(end_vec[3]); l++) { 
+                for (int l=start_vec[3]; l<(int)(end_vec[3]); l++) {
                     //std::cout << "[ " << i << " " << j << " " << k << " " << l << " ] \n";
                     idx = {i, j, k, l};
                     idxs.push_back(idx);
@@ -306,7 +303,7 @@ int idx_to_insert(std::vector<T> &vec, T value) {
 
 std::vector<std::string> slice_1Dvec_str_inp(std::vector<std::string> vec, int i1_start, int i1_end) {
     int size = i1_end - i1_start;
-    for (int i=0; i<size; i++) { 
+    for (int i=0; i<size; i++) {
         vec[i] = vec[i+i1_start];
     }
     vec.resize(size);
@@ -315,7 +312,7 @@ std::vector<std::string> slice_1Dvec_str_inp(std::vector<std::string> vec, int i
 
 std::vector<double> slice_1Dvec_float(std::vector<double> vec, int i1_start, int i1_end) {
     int size = i1_end - i1_start;
-    for (int i=0; i<size; i++) { 
+    for (int i=0; i<size; i++) {
         vec[i] = vec[i+i1_start];
     }
     return vec;
@@ -361,7 +358,7 @@ int find_min_element(std::vector<double> * max_rates) {
 bool equal(int* elem1, int* elem2, int len) {
     for (int i=0; i<len; i++) {
         if (elem1[i] != elem2[i]) return false;
-    } 
+    }
     return true;
 }
 
@@ -373,7 +370,7 @@ Matrix<int> comparison(Matrix<int> &mat1, Matrix<int> &mat2) {
     Matrix<int> mat_out(vec_size, 4);
     //std::cout << "nonzero matrix initialized \n";
 
-    int elem = 0; 
+    int elem = 0;
     bool in_mat = false;
     int idx = 0;
     
@@ -391,9 +388,9 @@ Matrix<int> comparison(Matrix<int> &mat1, Matrix<int> &mat2) {
                 }
                 idx ++;
             }
-        } 
+        }
     }
-    else { 
+    else {
         for (int i1=0; i1<(int)mat2.rows(); i1++) {
             in_mat = false;
             for (int i2=0; i2<(int)mat1.rows(); i2++) {
@@ -407,7 +404,7 @@ Matrix<int> comparison(Matrix<int> &mat1, Matrix<int> &mat2) {
                 }
                 idx ++;
             }
-        } 
+        }
     }
     
     //std::cout << "reshaping: \n";
@@ -415,6 +412,18 @@ Matrix<int> comparison(Matrix<int> &mat1, Matrix<int> &mat2) {
     //std::cout << "nonzero elem: " << elem << "\n";
     return mat_out;
 }
+
+
+/*
+template <typename T, , typename U>
+bool is_in(T v, U sub_v) {
+    for (int i=0; i<(int)v.size(); i++) {
+        if (v[i] == sub_v) {return true;}
+    }
+    
+    return false;
+}
+*/
 
 bool is_in(std::vector<std::vector<size_t>> v, std::vector<size_t> sub_v) {
     for (int i=0; i<(int)v.size(); i++) {
@@ -440,6 +449,7 @@ bool is_in(std::vector<std::vector<double>> v, std::vector<double> sub_v) {
     return false;
 }
 
+
 bool is_in(std::vector< int > check_vec, int elem) {
     bool elem_in;
 
@@ -447,4 +457,45 @@ bool is_in(std::vector< int > check_vec, int elem) {
         if (check_vec[i] == elem) return true;
     }
     return false;
+}
+
+
+std::vector<int> sum_vectors_allprocs(const std::vector<int> vec, int nprocs, int rank) {
+    std::vector<int> output(vec.size());
+    int value = 0;
+    int reduction_result = 0;
+    print_1Dvector(vec);
+    for (int i=0; i < vec.size(); i ++) {
+        if (rank == 0) {
+            std::cout << "i: " << i << "\n";
+            print_1Dvector(output);
+        }
+        reduction_result = 0;
+        value = vec[i];
+        MPI_Reduce(&value, &reduction_result, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+        output[i] = reduction_result;
+    }
+
+    return output;
+    
+}
+
+std::vector<double> sum_vectors_allprocs(const std::vector<double> vec, int nprocs, int rank) {
+    std::vector<double> output(vec.size());
+    double value = 0;
+    double reduction_result = 0;
+    print_1Dvector(vec);
+    for (int i=0; i < vec.size(); i ++) {
+        if (rank == 0) {
+            std::cout << "i: " << i << "\n";
+            print_1Dvector(output);
+        }
+        reduction_result = 0;
+        value = vec[i];
+        MPI_Reduce(&value, &reduction_result, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        output[i] = reduction_result;
+    }
+
+    return output;
+    
 }

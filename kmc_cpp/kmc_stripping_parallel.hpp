@@ -142,6 +142,53 @@ class Lattice {
             }
 
         /*
+        routine to check if a adjacent site is unoccupied for move
+        */
+        int get_NNcountofNN(int i, int j, int k, int l, int direc_sign, int s, int lattice) {
+            int i1; int i2; int i3; int i4; int direc_sign_NN;
+            int i1_NN; int i2_NN; int i3_NN; int i4_NN;
+            
+            if ((lattice == 2) || (lattice == 3)) {
+                if (lattice == 2) { direc_sign_NN = 1; }
+                else if (lattice == 3) { direc_sign_NN = 1; }
+                i1 = i;
+                i2 = (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                i3 = (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                i4 = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]); 
+            }
+            else if ((lattice == 0) || (lattice == 1)) {
+                if (lattice == 0) { i1 = 1; direc_sign_NN = -1; }
+                else if (lattice == 1) { i1 = 0; direc_sign_NN = 1; }
+                i2 = (((j + direc_sign * diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                i3 = (((k + direc_sign * diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                i4 = (((l + direc_sign * diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+            }
+
+            //std::cout << " i1: " << i1 << " i2: " << i2 << " i3: " << i3 << " i4: " << i4 << "\n";
+            int NN_count = 0;
+            for (int s2=0; s2 < (int)diag_directions.size(); s2++) {
+                i1_NN = !i1;
+                i2_NN = (((i2 + direc_sign_NN * diag_directions[s2][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                i3_NN = (((i3 + direc_sign_NN * diag_directions[s2][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                i4_NN = (((i4 + direc_sign_NN * diag_directions[s2][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+
+                if (((lattice == 0) || (lattice == 1)) && (i4 == 0) && (i1 == 0) && (diag_directions[s2][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                else if (((lattice == 0) || (lattice == 1)) && (i4 == (int)(lattice_dim[2]-1)) && (i1 == 1) && (diag_directions[s2][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                else if (((lattice == 2) || (lattice == 3)) && (i4 == 0) && (edge_directions[s][2] == -1)) {}  
+                else if (((lattice == 2) || (lattice == 3)) && (i4 == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
+                else {
+                    //std::cout << " i1_NN: " << i1_NN << " i2_NN: " << i2_NN << " i3_NN: " << i3_NN << " i4_NN: " << i4_NN << "\n";
+                    if ((i1_NN == i) && (i2_NN == j) && (i3_NN == k) && (i4_NN == l)) {}
+                    else if (vacancies(i1_NN,i2_NN,i3_NN,i4_NN)) {NN_count++;} //std::cout << "incriment \n";}
+                }
+            }
+
+            return NN_count;
+        }
+        
+
+
+        /*
         subroutine for adding move information to matrices stored as attributes of Lattice struc
         */
         int add_move(int i, int j, int k, int l, int curr_move_num, int direc_sign, int s, int idx, int lattice, int NN_count) {

@@ -205,7 +205,8 @@ void print_1Dvector(std::vector<bool>& vec) {
  * \param t The time at the current step.
  * \param get_rank A flag indicating whether to include the rank in the output data (default is false).
  */
-void write_output_parallel(const Matrix<int>& vacancies, std::vector<int> dims, std::string folder, int xprocs, int yprocs, int nprocs, int rank, int i, int l, int k, double t, bool get_rank = false) {
+/*
+void write_output_parallel(const Matrix<int>& vacancies, std::vector<int> dims, std::string folder, int xprocs, int yprocs, int nprocs, int rank, int i, int l, int k, double t, int curr_num_vacs, bool get_rank = false) {
     
     // Initialize variables
     int size = (int)( vacancies.rows() * vacancies.cols() );
@@ -242,6 +243,8 @@ void write_output_parallel(const Matrix<int>& vacancies, std::vector<int> dims, 
             &request 
         );
     }
+
+    // Get current number of vacancies in the system
 
     MPI_Barrier(MPI_COMM_WORLD);  // Synchronize all processes
 
@@ -339,17 +342,42 @@ void write_output_parallel(const Matrix<int>& vacancies, std::vector<int> dims, 
         if (!get_rank) {
             Matrix<int> all_vacancies = vacancies_out.nonzero();
             write_to_file(ss.str(), all_vacancies);
-        } else { 
+            std::cout << "all_vacancies.rows(): " << all_vacancies.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
+            
+            if (all_vacancies.rows() != curr_num_vacs) {
+                std::cout << "Change in total number of vacancies in simulation -- all_vacancies.rows(): " << all_vacancies.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
+                if (k != 0) {
+                    exit(0);
+                }
+            }
+        } 
+        else { 
             Matrix<int> vacancies_and_rank = proc_rank.nonzero_elems(); 
             write_to_file(ss.str(), vacancies_and_rank);
+            std::cout << "vacancies_and_rank.rows(): " << vacancies_and_rank.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
+            
+            if (vacancies_and_rank.rows() != curr_num_vacs) {
+                std::cout << "Change in total number of vacancies in simulation -- vacancies_and_rank.rows(): " << vacancies_and_rank.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
+                if (k != 0) {
+                    exit(0);
+                }
+            }
         }
-       
+        
+        if (reconstruct == true) {
+            reconstruct_ghost_sites(&all_vacancies, dims, rank, chunk_bounds, xprocs, yprocs, nprocs)
+        }
+        
+
         ss.str("");
         ss.clear();
+
+        
     }
 
     MPI_Barrier(MPI_COMM_WORLD);  // Synchronize all processes
 }
+*/
 
 /*!
  * \brief Sums up the vacancies across all processes and returns the total number of vacancies.
@@ -367,6 +395,7 @@ void write_output_parallel(const Matrix<int>& vacancies, std::vector<int> dims, 
  * 
  * \return The total number of vacancies across all processes.
  */
+/*
 int sum_vacs_allprocs(const Matrix<int>& vacancies, std::vector<int> dims, int xprocs, int yprocs, int nprocs, int rank) {
     // Initialize variables
     int size = (int)( vacancies.rows() * vacancies.cols() );  ///< Size of the vacancy matrix
@@ -496,3 +525,127 @@ int sum_vacs_allprocs(const Matrix<int>& vacancies, std::vector<int> dims, int x
 
     // In case of other ranks, no output is generated.
 }
+
+
+void reconstruct_ghost_sites(const Matrix<int>& vacancies, std::vector<int> dims, int rank, std::vector<std::vector<int>> chunk_bounds, int xprocs, int yprocs, int nprocs) {
+    int lattice_pos; int x; int y; int z;
+    int x_idx; int y_idx; int z_idx;
+
+    int xlo_edge = (((chunk_bounds[0][0]-1) % dims[0] + dims[0]) % dims[0]);
+    int xhi_edge = (((chunk_bounds[0][1]) % dims[0] + dims[0]) % dims[0]);
+    int ylo_edge = (((chunk_bounds[1][0]-1) % dims[1] + dims[1]) % dims[1]);
+    int yhi_edge = (((chunk_bounds[1][1]) % dims[1] + dims[1]) % dims[1]);
+
+    for (int vac_idx=0; vac_idx<(int)vacancies_pos.size(); vac_idx++) {
+        
+        lattice_pos = vacancies[vac_idx][0];
+        x = vacancies[vac_idx][1];
+        y = vacancies[vac_idx][2];
+        z = vacancies[vac_idx][3];
+
+        if (((procs[0] != 1) || (procs[1] != 1)) && (atomtype == 0)) {
+
+            // first layer ghost sites for (111) and (100) moves
+            if ((y >= (chunk_bounds[1][0] - 1)) && (y < (chunk_bounds[1][1]) )) {
+                if ((x == xlo_edge) && (lattice_pos == 1)) {
+                    
+                    y_idx = mod_with_bounds((y - chunk_bounds[1][0] + 1), dims[1]);
+                    (*temp_proc_neg_x_neighbors)(0,1,y_idx,z_idx) = 1;
+                    
+                    //filling in other corner to preserve corner periodic boundary conditions
+                    if ((y_idx == x_dims[2]-1) && (temp_proc_neighbors(rank,2) == rank)) { 
+                        (*temp_proc_neg_x_neighbors)(0,1,0,z_idx) = 1; }
+
+                    if ((y == ylo_edge)) {
+                        x_idx = mod_with_bounds((x - chunk_bounds[0][0] + 1), dims[0]);
+                        (*temp_proc_neg_y_neighbors)(0,1,x_idx,z_idx) = 1;
+                    }   
+                }
+            }
+            if ((x >= (chunk_bounds[0][0] - 1)) && (x < (chunk_bounds[0][1]) )) {
+                if ((y == ylo_edge)) { 
+                    if (lattice_pos == 1) {
+                        x_idx = mod_with_bounds((x - chunk_bounds[0][0] + 1), dims[0]);
+                        (*temp_proc_neg_y_neighbors)(0,1,x_idx,z_idx) = 1;
+
+                        //filling in other corner to preserve corner periodic boundary conditions
+                        if ((x_idx == y_dims[2]-1) && (temp_proc_neighbors(rank,0) == rank)) { 
+                            (*temp_proc_neg_y_neighbors)(0,1,0,z_idx) = 1; }
+                    }
+                }
+            }
+
+            // second layer ghost sites for (100) moves
+            if ((y >= (chunk_bounds[1][0])) && (y < (chunk_bounds[1][1] + 1) )) {
+                if ((x == xhi_edge) && (lattice_pos == 1)) {
+                    y_idx = mod_with_bounds((y - chunk_bounds[1][0]), dims[1]);
+                    (*temp_proc_pos_x_neighbors)(0,1,y_idx,z_idx) = 1;
+
+                    //filling in other corner to preserve corner periodic boundary conditions
+                    if ((y_idx == x_dims_pos[2]-1) && (temp_proc_neighbors(rank,2) == rank)) { 
+                        (*temp_proc_pos_x_neighbors)(0,1,0,z_idx) = 1; }
+                }
+            }
+            if ((x >= (chunk_bounds[0][0])) && (x < (chunk_bounds[0][1] + 1) )) {
+                if ((y == yhi_edge) && (lattice_pos == 1)) {
+                    
+                    x_idx = mod_with_bounds((x - chunk_bounds[0][0]), dims[0]);
+                    (*temp_proc_pos_y_neighbors)(0,1,x_idx,z_idx) = 1;
+
+                    //filling in other corner to preserve corner periodic boundary conditions
+                    if ((x_idx == 0) && (temp_proc_neighbors(rank,0) == rank)) { 
+                        (*temp_proc_pos_y_neighbors)(0,1,y_dims_pos[2]-1,z_idx) = 1; }
+                }
+            }
+
+            // first layer ghost sites for (111) and (100) moves
+            if ((y >= (chunk_bounds[1][0])) && (y < (chunk_bounds[1][1] + 1) )) {
+                if ((x == xhi_edge) && (lattice_pos == 0)) {
+                    
+                    y_idx = mod_with_bounds((y - chunk_bounds[1][0]), dims[1]);
+                    (*temp_proc_pos_x_neighbors)(0,0,y_idx,z_idx) = 1;
+
+                    //filling in other corner to preserve corner periodic boundary conditions
+                    if ((y_idx == 0) && (temp_proc_neighbors(rank,2) == rank)) { 
+                        (*temp_proc_pos_x_neighbors)(0,0,(size_t)(x_dims_pos[2]-1),z_idx) = 1; 
+                    }                    
+                    if ((y == yhi_edge)) {
+                        x_idx = mod_with_bounds((x - chunk_bounds[0][0]), dims[0]);
+                        (*temp_proc_pos_y_neighbors)(0,0,x_idx,z_idx) = 1;
+                    }
+                }
+            }
+            if ((x >= (chunk_bounds[0][0])) && (x < (chunk_bounds[0][1] + 1) )) {
+                if ((y == yhi_edge)) {
+                    x_idx = mod_with_bounds((x - chunk_bounds[0][0]), dims[0]);    
+                    (*temp_proc_pos_y_neighbors)(0,0,x_idx,z_idx) = 1; 
+
+                    //filling in other corner to preserve corner periodic boundary conditions
+                    if ((x_idx == 0) && (temp_proc_neighbors(rank,0) == rank)) { 
+                        (*temp_proc_pos_y_neighbors)(0,0,(size_t)(y_dims_pos[2]-1),z_idx) = 1; 
+                        }
+                }
+            }
+
+            // second layer ghost sites for (100) moves 
+            if ((y >= (chunk_bounds[1][0] - 1)) && (y < (chunk_bounds[1][1]) )) {
+                if ((x == xlo_edge) && (lattice_pos == 0)) {
+
+                    y_idx = mod_with_bounds((y - chunk_bounds[1][0] + 1), dims[1]);
+                    (*temp_proc_neg_x_neighbors)(0,0,y_idx,z_idx) = 1;
+
+                    //filling in other corner to preserve corner periodic boundary conditions
+                    //if (y_idx == x_dims[2]-1) { (*temp_proc_neg_x_neighbors)(0,0,0,z_idx) = 1; }
+                }
+            }
+            if ((x >= (chunk_bounds[0][0] - 1)) && (x < (chunk_bounds[0][1]) )) {
+                if ((y == ylo_edge) && (lattice_pos == 0)) {
+                    
+                    x_idx = mod_with_bounds(((x - 0.5) - chunk_bounds[0][0] + 1), dims[0]);
+                    (*temp_proc_neg_y_neighbors)(0,0,x_idx,z_idx) = 1;
+                }
+            }
+        }
+    }
+}
+*/

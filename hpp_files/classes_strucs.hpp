@@ -305,6 +305,232 @@ private:
     std::vector<mat_type> data_; /*!< Internal storage for matrix data */
 };
 
+/*! \brief A class for storing 4-D arrays of ints*/
+class FourDArr {
+public:
+    /*! \brief Constructor
+     * \param [in] len1 len2 len3 len4    Lengths of the 4 dimensions of the array
+     */
+
+    std::vector<size_t> size_vec;
+
+    FourDArr(size_t len1, size_t len2, size_t len3, size_t len4)
+    : len1_(len1)
+    , len2_(len2)
+    , len3_(len3)
+    , len4_(len4)
+    {
+        data_ = (int *)malloc(sizeof(int) * len1 * len2 * len3 * len4);
+        size_vec.push_back(len1);
+        size_vec.push_back(len2);
+        size_vec.push_back(len3);
+        size_vec.push_back(len4);
+    }
+    
+    /*! \brief Access an element of the 4-D array
+     * \param [in] i1 First index
+     * \param [in] i2 Second index
+     * \param [in] i3 Third index
+     * \param [in] i4 Fourth index
+     * \returns Reference to array element
+     */
+    int& operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
+        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
+    }
+    
+    int  operator() (size_t i1, size_t i2, size_t i3, size_t i4) const {
+        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
+    }
+
+    /*! \brief Destructor*/
+    ~FourDArr() {
+        free(data_);
+    }
+    
+    FourDArr(const FourDArr& m) = delete;
+    
+    FourDArr& operator= (const FourDArr& m) = delete;
+    
+    /*! \returns pointer to 0th element in the array */
+    int *data() {
+        return data_;
+    }
+    /*
+    retrieve nonzero elements
+    */
+    Matrix<int> nonzero() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        std::cout << "nonzero \n"; 
+        Matrix<int> mat_out(vec_size, 4);
+
+        int elem = 0; 
+        std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n"; 
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
+                            
+                            if (elem >= (vec_size-1)) {
+                                mat_out.reshape(vec_size*2, 4);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        } 
+        mat_out.reshape(elem, 4);
+        return mat_out;
+    }
+
+    /*
+    print data field of a FourDArr object
+    */
+    void print_4Dvector() { 
+        std::cout << "\n[ ";
+        for (int i1=0; i1<(int)len1_; i1++) {
+            std::cout << "[ ";
+            for (int i2=0; i2<(int)len2_; i2++) {
+                std::cout << "[ ";
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    std::cout << "[ ";
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
+                    }
+                    std::cout << "] ";
+                    std::cout << "\n  ";
+                }
+                std::cout << "] ";
+                std::cout << "\n  ";
+            }
+            std::cout << "] ";
+            std::cout << "\n  ";
+        } 
+        std::cout << "] \n\n";
+    }
+
+    /*
+    retrieve elements to a 1D slice of a FourDArr object corresponding to coordinates input
+    */
+    std::vector<int> grab_idxs(std::vector< std::vector<int> > coords) {
+        std::vector<int> output;
+
+        for (int i=0; i<(int)coords.size(); i++) {
+            std::vector<int> coord = coords[i];
+            int w = coord[0];
+            int x = coord[1];
+            int y = coord[2];
+            int z = coord[3];
+
+            int value = (int)(*this)(w,x,y,z);
+            output.push_back(value);
+        }
+        return output;
+    }
+
+    /*
+    assign elements to a 1D slice of a FourDArr object corresponding to values input
+    */
+    void assign_idxs(std::vector< std::vector<int> > coords, std::vector<int> values) {
+        size_t w;
+        size_t x;
+        size_t y;
+        size_t z;
+        
+        
+
+        for (int i=0; i<(int)coords.size(); i++) {
+            std::vector<int> coord = coords[i];
+            w = (size_t)coord[0];
+            x = (size_t)coord[1];
+            y = (size_t)coord[2];
+            z = (size_t)coord[3];
+            (*this)(w,x,y,z) = values[i];
+        }
+    }
+
+
+    Matrix<int> nonzero_elems() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        Matrix<int> mat_out(vec_size, 5);
+        mat_out.zero();
+
+        int elem = 0; 
+        //std::cout << "nonzero_elems() \n";
+        //std::cout << "len1_: " << len1_ << " len2_: " << len2_ << " len3_: " << len3_ << " len4_: " << len4_ << "\n";
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0 ) {
+                            //std::cout << "i1: " << i1 << " i2: " << i2 << " i3: " << i3 << " i4: " << i4 << " elem: " << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) << "\n";
+                            
+                            if (elem >= (vec_size-1)) {
+                                mat_out.reshape(vec_size*2, 5);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            mat_out[elem][4] = (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4);
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        } 
+        mat_out.reshape(elem, 5);
+        //std::cout << "nonzero elem: " << elem << "\n";
+        return mat_out;
+    }
+    
+    /*
+    set all elements in data field to zero
+    */
+    void zero() {
+        for (int i1=0; i1<len1_; i1++) {
+            for (int i2=0; i2<len2_; i2++) {
+                for (int i3=0; i3<len3_; i3++) {
+                    for (int i4=0; i4<len4_; i4++) {
+                        (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) = 0;
+                    }
+                }
+            }    
+        }
+    }
+
+    void check_elems() {
+
+        //std::cout << "check_elems()\n";
+        for (int i1=0; i1<len1_; i1++) {
+            for (int i2=0; i2<len2_; i2++) {
+                for (int i3=0; i3<len3_; i3++) {
+                    for (int i4=0; i4<len4_; i4++) {
+                        if ((*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0) {
+                            //td::cout << "i1: " << i1 << " i2: " << i2 << " i3: " << i3 << " i4: " << i4 << " elem: " << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) << "\n";
+                        }
+                    }
+                }
+            }    
+        }
+    }
+
+private:
+    size_t len1_, len2_, len3_, len4_; ///< Dimensions of the array
+    int* data_; ///< The data stored in the array
+};
+
 /*!
  * \class FourDBoolArr
  * \brief Represents a 4D boolean array implemented with bit-packing for memory efficiency.
@@ -528,8 +754,15 @@ public:
      * \param regions A vector of Region pointers.
      * \param region_sites Pointer to a FourDArr object.
      */
-    add_reg_struct(int idx, std::vector<Region *> regions, FourDArr *region_sites);
-
+    add_reg_struct(int idx , std::vector<Region*> regions, FourDArr* region_sites):
+            idx_(idx)
+            {
+                regions_ = regions;
+                region_sites_ = region_sites;
+                std::cout << "regions.size(): " << regions.size() << "\n";
+                std::cout << "regions_.size(): " << regions_.size() << "\n";
+            }
+            
     /*! \brief Retrieves the index field of the structure. */
     int get_idx() const { return idx_; }
 
@@ -544,6 +777,8 @@ private:
     std::vector<Region *> regions_;
     FourDArr *region_sites_;
 };
+ 
+typedef struct add_reg_struct add_reg_struct;
 
 /*!
  * \struct lattice_return_struct
@@ -557,7 +792,8 @@ public:
      * \param time_count A vector of time counts.
      * \param all_times A vector of all times.
      */
-    lattice_return_struct(std::vector<int> move_counts, std::vector<double> time_count, std::vector<double> all_times);
+    lattice_return_struct(std::vector<int> move_counts, std::vector<double> time_count, std::vector<double> all_times): 
+        move_counts_(move_counts), time_count_(time_count), all_times_(all_times) {}
 
     /*! \brief Retrieves the move_counts vector. */
     std::vector<int> get_move_counts() const { return move_counts_; }
@@ -573,3 +809,5 @@ private:
     std::vector<double> time_count_;
     std::vector<double> all_times_;
 };
+
+typedef struct lattice_return_struct lattice_return_struct;

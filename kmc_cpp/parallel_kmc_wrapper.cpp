@@ -4,13 +4,12 @@
 
 int main() {
     std::cout << "first line \n";
-    int nprocs = 4;//argv[0];
     int xprocs;
     int yprocs;
     int zprocs;
-    int size; 
+    int nprocs; 
     int rank;
-    int gcf;    
+    int gcf;
     std::vector<int> dims = {0,0,0};
 
     std::ostringstream ss;
@@ -23,26 +22,38 @@ int main() {
     std::vector<std::string> lines;
     std::string line;
     int read_idx = 0;
-    std::vector< std::string > infile_name = {"geo_small.txt"};
+    std::vector< std::string > infile_name = {"hexagon_corrected_10k.txt"};     
     std::vector<double> vertex_rates = {7.65954e11};
     std::vector<double> edge_rates = {1.23537e6};
     std::vector<std::string> folders = {"parallel_output"};
     std::vector< std::string > catalog_file = {"ratecatalog_nogb.txt"};
     std::string region_infile;
-    std::vector< std::vector< std::vector<double> > > reg_rates = {{{8.28403e10, 8.28403e10}}}; //settings of kb = 8.6173e-5, T = 300, E = 0.05, prefactor = 5e12
+    std::vector< std::vector< std::vector<double> > > reg_rates = {{{4.56e7, 5e12}}}; //{{{8.28403e10, 8.28403e10}}}; //settings of kb = 8.6173e-5, T = 300, E = 0.05, prefactor = 5e12
     std::tuple< std::vector< std::vector< std::vector<int> > >, std::vector<int>, std::vector<double>, std::vector<double> > return_tuple;
     int iterations = 1;
-    double time = 10;
+    double time = 100;
     int waitint = 0;
 
-    std::vector<Matrix<int>*> vacancies; std::vector<int> counts; std::vector<double> times; std::vector<double> all_times;
+    std::vector<int> counts; std::vector<double> times; std::vector<double> all_times;    
     
-
     std::cout << "variables initialized \n";
 
+    bool restart = false;
+    int last_move_tick = 0;
+    double last_time = 0;
+    std::tuple<int, double> tup_out;
+                
     for (int h=0; h<(int)folders.size(); h++) {
         for (int i=0; i<iterations; i++) {
             for (int k=0; k<(int)edge_rates.size(); k++) {
+                tup_out = get_last_iter_time(folders[h]);
+
+                last_move_tick = std::get<0>(tup_out);
+                last_time = std::get<1>(tup_out);
+                std::cout << "last_time: " << last_time << "\n";
+                std::cout << "last_move_tick: " << last_move_tick << "\n";
+
+                if (last_move_tick!=0) restart = true;
 
                 in_file.open(infile_name[h]);
                 std::cout << "opened file \n";
@@ -59,13 +70,20 @@ int main() {
                 read_idx ++;
                 std::vector<std::string> dims_toks = tokenizer(dims_str," "); 
                 
-                print_1Dvector_string(dims_toks);
+                print_1Dvector(dims_toks);
 
                 for (int idx=0; idx<3; idx++) {
-
                     dims[idx] = std::stoi(dims_toks[idx+1]); 
                 }                
 
+                std::cout << "starting mpi stuff \n";
+
+                // specify number of procs using slurm
+                MPI_Init(NULL, NULL);
+                MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+                MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+                std::cout << "nprocs: " << nprocs << "\n";
                 if (nprocs == 0) {
                     std::cout << "ERROR: no command line arguments provided\n";
                     exit(0); 
@@ -73,17 +91,12 @@ int main() {
                 else {
                     gcf = create_partition(nprocs, dims[0]); 
                 }
-
+                std::cout << "gcf: " << gcf << "\n";
                 xprocs = gcf;
                 yprocs = (int)(nprocs / gcf);
+                xprocs = 2;//nprocs;
+                yprocs = 2;//1;
                 std::cout << "xprocs: " << xprocs << " yprocs: " << yprocs << "\n";
-
-                std::cout << "starting mpi stuff \n";
-
-                // specify number of procs using slurm
-                MPI_Init(NULL, NULL);
-                MPI_Comm_size(MPI_COMM_WORLD, &size);
-                MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
                 std::cout << "rank: " << rank << "\n";
                 std::cout << "mpi initialized \n";
@@ -98,8 +111,29 @@ int main() {
                 std::vector<int> procs = {xprocs, yprocs};
 
                 std::vector< std::vector<int> > chunk_bounds = {{x_chunk_start, x_chunk_end},{y_chunk_start, y_chunk_end}, {0,dims[2]}};
-                std::cout << "rank: " << rank <<"\n";
-                print_2Dvector(chunk_bounds);
+
+                MPI_Barrier(MPI_COMM_WORLD);
+                if (rank == 0) {
+                    std::cout << "rank: " << rank <<"\n";
+                    print_2Dvector(chunk_bounds);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                if (rank == 1) {
+                    std::cout << "rank: " << rank <<"\n";
+                    print_2Dvector(chunk_bounds);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                if (rank == 2) {
+                    std::cout << "rank: " << rank <<"\n";
+                    print_2Dvector(chunk_bounds);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                if (rank == 3) {
+                    std::cout << "rank: " << rank <<"\n";
+                    print_2Dvector(chunk_bounds);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+
                 //exit(0);
                 std::chrono::system_clock::time_point start;
 
@@ -127,15 +161,16 @@ int main() {
                 start = std::chrono::system_clock::now();
                 std::cout << "time got \n";
                 MPI_Barrier(MPI_COMM_WORLD);
-                lattice_return_struct return_tuple = lattice->new_kmc_iterator(time, start, folders[h], i);
+                lattice_return_struct return_tuple = lattice->new_kmc_iterator(time, start, folders[h], i, k, last_move_tick, last_time);
                 delete lattice;
                 
-                vacancies = return_tuple.get_all_vacancies(); counts = return_tuple.get_move_counts(); times = return_tuple.get_time_count(); all_times =return_tuple.get_all_times();
+                counts = return_tuple.get_move_counts(); times = return_tuple.get_time_count(); all_times =return_tuple.get_all_times();
 
                 MPI_Barrier(MPI_COMM_WORLD); // all the sub ranks/processes waits here
 
                 std::cout << "rank: " << rank << " post main call barrier \n";
                 /* process 0 will aggregate the results*/
+                /*
                 int size = 0;
                 int size1 = (int)vacancies.size();
 
@@ -251,10 +286,11 @@ int main() {
 
                     MPI_Barrier(MPI_COMM_WORLD); // all the sub ranks/processes waits here
                 }
+                */
                 
                 printf("MPI Finalize\n");
                 MPI_Finalize();
-                
+                /*
                 for (int l=0; l<vacancies_allframes.size(); l++) {
                     ss << folders[h] << "/vacs/vacancies_output_" << (i) << "_" << l << "_" << k << "rate.txt";
                     output_filename = ss.str();
@@ -262,11 +298,11 @@ int main() {
                     ss.str("");
                     ss.clear();
                 }
+                */
             }
         }
     }
 
-    for (int i=0; i < (int)vacancies.size(); i++) { delete vacancies[i]; }
 
     return 0;
 }

@@ -40,7 +40,6 @@ class Lattice {
         FourDBoolArr vacancies;
         FourDArr bc_sites;
         FourDArr region_sites;
-        int rank;
         int num_procs;
         double t;
         FourDBoolArr proc_neg_x_neighbors;
@@ -83,15 +82,18 @@ class Lattice {
         std::vector< std::vector<int> > prev_oldlocs;
         std::vector<int> prev_lattice;
         std::vector<int> prev_idxs;
-        std::vector< std::vector<int> > par_prev_moves;
+        std::vector< std::vector<int> > par_prev_oldlocs;
+        std::vector< std::vector<int> > par_prev_newlocs;
         std::vector<int> par_move_ticks;
         std::vector<int> par_prev_idx;
         std::vector<int> prev_move_type;
         std::vector<int> prev_move_type_ticks;
         int ghost_done_tag;
         int par_done_tag;
-        int conflict_done_flag;
+        int conflict_done_tag;
+        int conflict_ghost_done_tag;
         int void_threshold;
+        int rank;
         double void_barrier;
         int solo_vacs;
             
@@ -138,7 +140,8 @@ class Lattice {
                 num_of_vacs = num_vacancies;
                 ghost_done_tag = 10;
                 par_done_tag = 11;
-                conflict_done_flag = 12;
+                conflict_done_tag = 12;
+                conflict_ghost_done_tag = 13;
                 rank = rank_in;
             }
 
@@ -1050,11 +1053,10 @@ class Lattice {
         * @param j_old Old x-coordinate of the ghost site.
         * @param k_old Old y-coordinate of the ghost site.
         * @param l_old Old z-coordinate of the ghost site.
-        * @param idx Index of the ghost site (used for data management).
         * @param new_loc Vector containing the new locations of the ghost sites.
         * @param parallel_transfer Boolean flag indicating if the transfer is parallel.
         */
-        void ghost_site_send(int i_old, int j_old, int k_old, int l_old, int idx, const std::vector<int>& new_loc, bool parallel_transfer) {         
+        void ghost_site_send(int i_old, int j_old, int k_old, int l_old, const std::vector<int>& new_loc, bool parallel_transfer, bool reverse=false) {         
             //
             assert( ((i_old == 0) || (i_old == 1)) && ((new_loc[0] == 0) || (new_loc[0] == 1)) );
             assert( ((j_old >= 0) && (j_old < sublattice_dim[0])) && ((new_loc[1] >= 0) && (new_loc[1] < sublattice_dim[0])) );
@@ -1080,8 +1082,17 @@ class Lattice {
             int l = new_loc[3];
 
             int tag;
-            if (parallel_transfer) tag = 2;
-            else tag = 3;
+            if (reverse) {
+                if (parallel_transfer) tag = 4;
+                else tag = 5;
+            }
+            else {
+                if (parallel_transfer) tag = 2;
+                else tag = 3;
+            }
+            //std::cout << "rank: " << rank << " reverse: " << reverse << "\n";
+            //std::cout << "rank: " << rank << " parallel_transfer: " << parallel_transfer << "\n";
+            //std::cout << "rank: " << rank << " tag: " << tag << "\n";
             
             if (j_old < 1) {/*communicate with proc to -x direction*/
                 if (k_old < 1) {
@@ -1771,7 +1782,7 @@ class Lattice {
                 if ( ((new_loc[1] < 1) || (new_loc[1] > (sublattice_dim[0] - 2))) || ((new_loc[2] < 1) || (new_loc[2] > (sublattice_dim[1] - 2))) ||
                 ((old_loc[0] < 1) || (old_loc[0] > (sublattice_dim[0] - 2))) || ((old_loc[1] < 1) || (old_loc[1] > (sublattice_dim[1] - 2))) ) 
                 { /*checking to see if neighbor ghost sites need to be updated */
-                    ghost_site_send(i_old,j_old,k_old,l_old,idx,new_loc,parallel_transfer);
+                    ghost_site_send(i_old,j_old,k_old,l_old,new_loc,parallel_transfer);
                     ghost_site_self_reference(i_old,j_old,k_old,l_old,new_loc,parallel_transfer);
                 }
             }
@@ -1919,13 +1930,15 @@ class Lattice {
         */
         void remove_old_par_moves(int move_ticks) {
             
-            std::vector<std::vector<int>>::iterator ptr1 = par_prev_moves.begin();
+            std::vector<std::vector<int>>::iterator ptrnew = par_prev_newlocs.begin();
+            std::vector<std::vector<int>>::iterator ptrold = par_prev_oldlocs.begin();
             std::vector<int>::iterator ptr2 = par_prev_idx.begin();
             std::vector<int> remove_idxs;
 
             for (int i=0; i < (int)par_move_ticks.size(); i++) {
                 if (move_ticks > (par_move_ticks.at(i) + 1)) {
-                    par_prev_moves.erase(ptr1);
+                    par_prev_newlocs.erase(ptrnew);
+                    par_prev_oldlocs.erase(ptrold);
                     remove_idxs.push_back(i);
                     par_prev_idx.erase(ptr2);
                 }
@@ -2127,6 +2140,13 @@ class Lattice {
                     
                     
                 }
+                
+                if ( ((new_vac[1] < 1) || (new_vac[1] > (sublattice_dim[0] - 2))) || ((new_vac[2] < 1) || (new_vac[2] > (sublattice_dim[1] - 2))) ||
+                ((old_vac[1] < 1) || (old_vac[1] > (sublattice_dim[0] - 2))) || ((old_vac[2] < 1) || (old_vac[2] > (sublattice_dim[1] - 2))) ) 
+                { /*checking to see if neighbor ghost sites need to be updated */
+                    ghost_site_send(new_vac[0],new_vac[1],new_vac[2],new_vac[3],old_vac,parallel_transfer,true);
+                    ghost_site_self_reference(new_vac[0],new_vac[1],new_vac[2],new_vac[3],old_vac,parallel_transfer);
+                }
             }
 
             prev_moves.pop_back();
@@ -2157,10 +2177,10 @@ class Lattice {
             
             vacs_idx = par_prev_idx.at(par_prev_idx.size()-1),0;
             
-            i1 = (par_prev_moves.at((par_prev_moves.size()-1)).at(0));
-            i2 = (par_prev_moves.at((par_prev_moves.size()-1)).at(1));
-            i3 = (par_prev_moves.at((par_prev_moves.size()-1)).at(2));
-            i4 = (par_prev_moves.at((par_prev_moves.size()-1)).at(3));
+            i1 = (par_prev_newlocs.at((par_prev_newlocs.size()-1)).at(0));
+            i2 = (par_prev_newlocs.at((par_prev_newlocs.size()-1)).at(1));
+            i3 = (par_prev_newlocs.at((par_prev_newlocs.size()-1)).at(2));
+            i4 = (par_prev_newlocs.at((par_prev_newlocs.size()-1)).at(3));
 
             
             if (i1 == 1) {
@@ -2177,9 +2197,24 @@ class Lattice {
             vacancies_pos.remove_row(vacs_idx, rank);
             num_of_vacs --;
             
+
+            std::vector<int> old_vac(4);
+            old_vac[0] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(0));
+            old_vac[1] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(1));
+            old_vac[2] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(2));
+            old_vac[3] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(3));
+
             par_move_ticks.pop_back();
-            par_prev_moves.pop_back();
+            par_prev_newlocs.pop_back();
+            par_prev_oldlocs.pop_back();
             par_prev_idx.pop_back();
+
+            if ( ((i1 < 1) || (i2 > (sublattice_dim[0] - 2))) || ((i3 < 1) || (i4 > (sublattice_dim[1] - 2))) ||
+                ((old_vac[0] < 1) || (old_vac[0] > (sublattice_dim[0] - 2))) || ((old_vac[1] < 1) || (old_vac[1] > (sublattice_dim[1] - 2))) ) 
+                { /*checking to see if neighbor ghost sites need to be updated */
+                    ghost_site_send(i1,i2,i3,i4,old_vac,true,true);
+                    ghost_site_self_reference(i1,i2,i3,i4,old_vac,true);
+                }
         }
 
         /**
@@ -2281,13 +2316,21 @@ class Lattice {
         * @param vac_idx The index of the vacancy that was moved.
         */
         void store_parallel_info(const std::vector<int>& parallel_buffer, int move_ticks, int vac_idx) {
-            std::vector<int> vac(4); 
-            vac[0] = parallel_buffer[0];
-            vac[1] = parallel_buffer[1];
-            vac[2] = parallel_buffer[2];
-            vac[3] = parallel_buffer[3];
-            
-            par_prev_moves.push_back(vac);
+            std::vector<int> vac_new(4); 
+            vac_new[0] = parallel_buffer[0];
+            vac_new[1] = parallel_buffer[1];
+            vac_new[2] = parallel_buffer[2];
+            vac_new[3] = parallel_buffer[3];
+
+            std::vector<int> vac_old(4); 
+            int old_proc = (parallel_buffer[4]);
+            vac_old[0] = (parallel_buffer[5]);
+            vac_old[1] = (parallel_buffer[6]);
+            vac_old[2] = (parallel_buffer[7]);
+            vac_old[3] = (parallel_buffer[8]);
+
+            par_prev_oldlocs.push_back(vac_old);
+            par_prev_newlocs.push_back(vac_new);
             par_move_ticks.push_back(move_ticks);
             par_prev_idx.push_back(vac_idx);
         }
@@ -2368,7 +2411,7 @@ class Lattice {
             std::vector<size_t> y_dims = proc_pos_y_neighbors.size_vec;
             
             if (vacancies((size_t)i, (size_t)j, (size_t)k, (size_t)l) == 1) {
-                //std::cout << "rank: " << rank << " ERROR: Vacancy overwriting already existing vacancy in interprocessor communication \n";
+                std::cout << "rank: " << rank << " ERROR: Vacancy overwriting already existing vacancy in interprocessor communication \n";
                 interboundary_conflict = true;
                 comm_boundary_conflict();
             }
@@ -2398,6 +2441,75 @@ class Lattice {
             return interboundary_conflict;
         }
 
+
+
+        /**
+        * @brief Handles the reversal of ghost sites during a simulation.
+        *
+        * This function coordinates communication between MPI processes to manage
+        * ghost sites and resolve conflicts in a parallel simulation environment.
+        * It utilizes MPI for communication and ensures all processes reach
+        * consensus on the ghost site states before proceeding.
+        *
+        * @param move_ticks The current simulation tick used for synchronization.
+        */
+        void reverse_ghost_sites(int move_ticks) {
+            MPI_Request request1; ///< MPI request handle for non-blocking send operations.
+            MPI_Status status1;   ///< MPI status to capture information about received messages.
+            std::vector<int> new_loc_buffer1(9); ///< Buffer for receiving ghost site data from tag 4.
+            std::vector<int> new_loc_buffer2(9); ///< Buffer for receiving ghost site data from tag 5.
+            std::vector<bool> stop_conflict_ghost_array(num_procs, 0); ///< Tracks whether each process is done with conflict resolution.
+            stop_conflict_ghost_array[rank] = 1; ///< Mark the current process as done initially.
+            bool stop_conflict_ghost = 0; ///< Flag indicating whether all processes have resolved conflicts.
+
+            MPI_Barrier(MPI_COMM_WORLD); ///< Synchronize all processes before starting communication.
+
+            // Notify all other processes of conflict resolution readiness
+            for (int new_proc = 0; new_proc < num_procs; new_proc++) { 
+                if (new_proc != rank) {
+                    MPI_Isend(NULL, 0, MPI_CHAR, new_proc, conflict_ghost_done_tag, MPI_COMM_WORLD, &request1); 
+                    MPI_Wait(&request1, MPI_STATUS_IGNORE);
+                }
+            }
+
+            int loop_count = 0; ///< Counter to prevent infinite loops in case of communication issues.
+
+            // Main loop to handle incoming messages and resolve conflicts
+            while (!stop_conflict_ghost) {
+                if (loop_count > 25) exit(0); ///< Safety mechanism to prevent infinite looping.
+
+                stop_conflict_ghost = 1; ///< Assume all conflicts are resolved initially.
+
+                status1.MPI_TAG = 0;
+
+                MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status1);
+
+                // Handle message with tag 4: Receive and process ghost site data
+                if (status1.MPI_TAG == 4) {
+                    MPI_Recv(new_loc_buffer1.data(), 9, MPI_INT, status1.MPI_SOURCE, 4, MPI_COMM_WORLD, &status1);
+                    ghost_site_recieve(new_loc_buffer1, true);
+                }
+
+                // Handle message with tag 5: Receive and process ghost site data
+                if (status1.MPI_TAG == 5) {
+                    MPI_Recv(new_loc_buffer2.data(), 9, MPI_INT, status1.MPI_SOURCE, 5, MPI_COMM_WORLD, &status1);
+                    ghost_site_recieve(new_loc_buffer2, false);
+                }
+
+                // Handle conflict resolution completion notification
+                if (status1.MPI_TAG == conflict_ghost_done_tag) {
+                    MPI_Recv(NULL, 0, MPI_CHAR, status1.MPI_SOURCE, conflict_ghost_done_tag, MPI_COMM_WORLD, &status1);
+                    stop_conflict_ghost_array[status1.MPI_SOURCE] = 1;
+                }
+
+                // Check if all processes have resolved their conflicts
+                for (int j = 0; j < (int)stop_conflict_ghost_array.size(); j++) {
+                    stop_conflict_ghost &= stop_conflict_ghost_array[j];
+                }
+                loop_count++;
+            }
+        }
+
         /**
         * @brief Receive communication (ghost site update, lattice site update, conflict) using blocking communication.
         *
@@ -2412,33 +2524,34 @@ class Lattice {
             MPI_Status status1;
             std::vector<int> new_loc_buffer1(9);
             std::vector<int> new_loc_buffer2(9);
-            std::vector<int> new_loc_buffer3(9);
-            
+            std::vector<int> new_loc_buffer3(9);            
 
             std::vector<bool> stop_ghost_Array(num_procs, 0);
             std::vector<bool> stop_par_Array(num_procs, 0);
-            std::vector<bool> stop_rev_array(num_procs, 0);
             std::vector<bool> stop_conflict_array(num_procs, 0);
+
             stop_ghost_Array[rank] = 1;
             stop_par_Array[rank] = 1;
-            stop_rev_array[rank] = 1;
             stop_conflict_array[rank] = 1;
+
             bool stop_ghost = 0;
             bool stop_par = 0;
-            bool stop_rev = 0;
             bool need_reverse = 0;
             bool stop_conflict = 0;
             bool interboundary_conflict = false;
+
+            //std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " enter receive_parallel_comm_helper() \n";
 
             while ((!stop_par) || (!stop_ghost)) {
 
                 stop_par = 1;
                 stop_ghost = 1;
-                stop_rev = 1;
 
                 status1.MPI_TAG = 0;
                 
                 MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status1);
+                //std::cout << "rank: " << rank <<  " move_ticks: " << move_ticks <<" stop par status1.MPI_TAG: " << status1.MPI_TAG << " status1.MPI_SOURCE: " << status1.MPI_SOURCE << "\n";
+                
 
                 // test for both message 1 and message 2 simulatneously in if statement
                 if (status1.MPI_TAG == 1) {
@@ -2457,7 +2570,7 @@ class Lattice {
                 }
                 
                 if (status1.MPI_TAG == par_done_tag) {
-                    MPI_Recv(NULL, 0, MPI_CHAR, status1.MPI_SOURCE, par_done_tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Recv(NULL, 0, MPI_CHAR, status1.MPI_SOURCE, par_done_tag, MPI_COMM_WORLD, &status1);
                     stop_par_Array[status1.MPI_SOURCE] = 1;
                 }
                 
@@ -2466,7 +2579,7 @@ class Lattice {
                 }
                 
                 if (status1.MPI_TAG == ghost_done_tag) {
-                    MPI_Recv(NULL, 0, MPI_CHAR, status1.MPI_SOURCE, ghost_done_tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Recv(NULL, 0, MPI_CHAR, status1.MPI_SOURCE, ghost_done_tag, MPI_COMM_WORLD, &status1);
                     stop_ghost_Array[status1.MPI_SOURCE] = 1;
                 }
                 
@@ -2474,43 +2587,57 @@ class Lattice {
                     stop_ghost &= stop_ghost_Array[j];
                 }
             }
+            MPI_Barrier(MPI_COMM_WORLD);
 
             MPI_Request request1;
             for (int new_proc=0; new_proc<num_procs; new_proc++) { 
                 if (new_proc != rank) {
-                    MPI_Isend( NULL, 0, MPI_CHAR, new_proc, conflict_done_flag, MPI_COMM_WORLD, &request1); 
+                    //std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " 1 new_proc: " << new_proc << "\n";
+                    MPI_Isend( NULL, 0, MPI_CHAR, new_proc, conflict_done_tag, MPI_COMM_WORLD, &request1); 
                     MPI_Wait(&request1, MPI_STATUS_IGNORE);
                 }
             }
 
+            //std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " sent conflict_done_tag \n";
+
             remove_old_par_moves(move_ticks);
 
-            //MPI_Barrier(MPI_COMM_WORLD);
-            
+            int loop_count = 0;
             while ((!stop_conflict)) {
+                if (loop_count > 25) exit(0);
                 stop_conflict = 1;
                 status1.MPI_TAG = 0;
                 MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status1);
+                //std::cout << "rank: " << rank <<  " move_ticks: " << move_ticks <<" conflict 1 status1.MPI_TAG: " << status1.MPI_TAG << " status1.MPI_SOURCE: " << status1.MPI_SOURCE << "\n";
+                //std::cout << "rank: " << rank << " status1.MPI_TAG: " << status1.MPI_TAG << "\n";
                 
                 if (status1.MPI_TAG == 6) {
                     MPI_Recv(NULL, 0, MPI_CHAR, status1.MPI_SOURCE, 6, MPI_COMM_WORLD, &status1);
                     need_reverse = 1;
                 }
-                if (status1.MPI_TAG == conflict_done_flag) {
-                    MPI_Recv(NULL, 0, MPI_CHAR, status1.MPI_SOURCE, conflict_done_flag, MPI_COMM_WORLD, &status1);
+                if (status1.MPI_TAG == conflict_done_tag) {
+                    //std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " pre stop_conflict_array: \n";
+                    //print_1Dvector(stop_conflict_array);
+                    MPI_Recv(NULL, 0, MPI_CHAR, status1.MPI_SOURCE, conflict_done_tag, MPI_COMM_WORLD, &status1);
                     stop_conflict_array[status1.MPI_SOURCE] = 1;
+
+                    //std::cout << "rank: " << rank <<  " move_ticks: " << move_ticks <<" post stop_conflict_array: \n";
+                    //print_1Dvector(stop_conflict_array);
                 }
                 for (int j = 0; j < (int)stop_conflict_array.size(); j++) {
                     stop_conflict &= stop_conflict_array[j];
                 }
+                loop_count ++;
             }
-
-            //MPI_Barrier(MPI_COMM_WORLD);
+            //std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " recv conflict_done_tag \n";
+            MPI_Barrier(MPI_COMM_WORLD);
             
             if ((need_reverse) || (interboundary_conflict)) {
                 deincrement_time();
                 reverse_moves_wrapper();
             }
+            
+            reverse_ghost_sites(move_ticks);
         }
 
         /**
@@ -2549,12 +2676,14 @@ class Lattice {
             int move_ticks = last_tick;
             double old_time;
             bool restart = false;
+            bool reconstruct = false;
 
             if (move_ticks != 0) { restart = true; }
 
             int prev_num_vacs = 0;
             int curr_num_vacs = 0;
             bool get_rank = true;
+            int write_frames = 10000;
 
             std::ostringstream ss;
 
@@ -2564,6 +2693,7 @@ class Lattice {
             MPI_Barrier(MPI_COMM_WORLD);
             
             while (t  < time_lim) {
+                //std::cout << "rank: " << rank << " move_ticks: " << move_ticks << "\n"; 
 
                 if ( rate_cumsum.size() != 0) {
                     end = std::chrono::system_clock::now(); 
@@ -2598,11 +2728,34 @@ class Lattice {
                 
                 receive_parallel_comm_helper(move_ticks);
 
-                if (move_ticks % 10000 == 0) {
-                    if (rank == 0) { std::cout << "rank: " << rank << " move_ticks: " << move_ticks << "\n"; }
+                if (move_ticks % write_frames == 0) {
+
+                    /*
+                    if ((rank == 0) && (prev_num_vacs != curr_num_vacs)) {
+                        std::cout << "Change in total number of vacancies in simulation -- curr_num_vacs: " << curr_num_vacs << " prev_num_vacs: " << prev_num_vacs << " move_ticks: " << move_ticks << "\n"; 
+                        if ((move_ticks != 0) && (restart == false)) {
+                            exit(0);
+                        }
+                    }
+
+                    if (rank == 0) { 
+                        std::cout << "rank: " << rank << " move_ticks: " << move_ticks << "\n"; 
+                        std::cout << "rank: " << rank << " curr_num_vacs: " << curr_num_vacs << "\n";
+                        std::cout << "rank: " << rank << " prev_num_vacs: " << prev_num_vacs << "\n";
+                    }
+                    */
+
+                    if (move_ticks % (10*write_frames) == 0) {reconstruct = true;}
+                    else {reconstruct = false;}
+
                     Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
-                    write_output_parallel(only_vacancies, total_dims, folder, proc_dims[0], proc_dims[1], num_procs, rank, iteration, rates_i, move_ticks, t, get_rank);
+                    std::cout << "rank: " << rank << " vac_nonzero.rows(): " << only_vacancies.rows() << " vacancies_pos.rows(): " << vacancies_pos.rows() << "\n"; 
+                    
+                    curr_num_vacs = sum_vacs_allprocs(only_vacancies, proc_dims[0], proc_dims[1]);
+                    write_output_parallel(only_vacancies, folder, proc_dims[0], proc_dims[1], iteration, rates_i, move_ticks, curr_num_vacs, reconstruct, get_rank);
+
                 }
+
 
                 parallel_get_actions();
                 
@@ -2622,7 +2775,6 @@ class Lattice {
                 */
                 
                 if (restart == true) restart = false;
-                prev_num_vacs = curr_num_vacs;
 
                 elapsed_seconds = end-start;
                 t += timestep;
@@ -2631,6 +2783,7 @@ class Lattice {
                 old_time = t;
 
             }
+
             std::cout << "rank: " << rank << " elapsed_seconds: " << elapsed_seconds.count() << "\n";
             std::cout << "rank: " << rank << " exiting\n";
             std::cout << "rank: " << rank << " t: " << t << "\n";
@@ -2658,6 +2811,429 @@ class Lattice {
 
             return output_vals;
         }
+
+        /*!
+        * \brief Writes output data in a parallel manner using MPI.
+        * 
+        * This function handles the parallel writing of output data across multiple processes.
+        * It communicates with all the processes in the MPI world to gather data and write the output files.
+        * The data is gathered and processed in chunks by different MPI ranks and written to files by rank 0.
+        * 
+        * \param vacancies The matrix of vacancy data to be written.
+        * \param dims A vector containing the dimensions of the grid.
+        * \param folder The folder where the output will be written.
+        * \param xprocs The number of processes in the x direction.
+        * \param yprocs The number of processes in the y direction.
+        * \param nprocs The total number of processes.
+        * \param rank The rank of the current process.
+        * \param i The index of the current time step.
+        * \param l The index of the current iteration.
+        * \param k The current move tick count.
+        * \param t The time at the current step.
+        * \param get_rank A flag indicating whether to include the rank in the output data (default is false).
+        */
+        void write_output_parallel(const Matrix<int>& only_vacancies, std::string folder, int xprocs, int yprocs, int i, int l, int k, int curr_num_vacs,  bool reconstruct, bool get_rank = false) {
+            
+            // Initialize variables
+            int size = (int)( only_vacancies.rows() * only_vacancies.cols() );
+            std::vector<int> output(size);
+            int idx = 0;
+            int size2 = 0; int size3 = 0; int size_in;
+            int i1, i2, i3, i4, x_idx, y_idx, x_chunk_start, y_chunk_start;
+            std::vector<int> vacs_in;
+            MPI_Status status;
+            MPI_Request request;
+            std::ostringstream ss;
+            
+            std::vector<int> nums_and_proc(2);
+            std::vector<int> num_proc_buffer(2);
+            std::vector<int> receive_counts(num_procs);
+            std::vector<int> receive_displacements(num_procs, 0);
+            std::vector<int> sum_vec(num_procs);
+
+            int num_elems = (int)(only_vacancies.rows() * 4);
+            nums_and_proc[0] = num_elems;
+            nums_and_proc[1] = rank;
+            std::cout << "rank: " << rank << " only_vacancies.rows(): " << only_vacancies.rows() << "\n";
+            MPI_Barrier(MPI_COMM_WORLD);
+            int sum_of_elems = 0;
+
+            reconstruct = true;
+            
+            // Send the number of elements and process rank to rank 0
+            if (rank != 0) {
+                MPI_Isend(
+                    nums_and_proc.data(),  // Address of the message we are sending
+                    2,                     // Number of elements handled by the address
+                    MPI_INT,               // MPI type of the message
+                    0,                     // Rank of receiving process
+                    4,                     // Message tag
+                    MPI_COMM_WORLD,        // MPI communicator
+                    &request 
+                );
+            }
+
+            // Get current number of vacancies in the system
+
+            MPI_Barrier(MPI_COMM_WORLD);  // Synchronize all processes
+
+            if (rank == 0) {
+                receive_counts[0] = num_elems;
+                
+                // Receive the number of elements and ranks from other processes
+                for (int rec_proc = 0; rec_proc < num_procs; rec_proc++) {
+                    if (rec_proc != rank) {
+                        MPI_Recv(
+                            num_proc_buffer.data(),  // Address of the message we are receiving
+                            2,                       // Number of elements handled by the address
+                            MPI_INT,                 // MPI type of the message
+                            rec_proc,                // Rank of sending process
+                            4,                       // Message tag
+                            MPI_COMM_WORLD,          // MPI communicator
+                            &status 
+                        ); 
+
+                        receive_counts[num_proc_buffer[1]] = num_proc_buffer[0];
+                    }              
+                }
+                
+                // Calculate the displacements and sums for each process
+                for (int sum_i = 0; sum_i < (int)receive_counts.size(); sum_i++) {
+                    if (sum_i == 0) {
+                        receive_displacements[sum_i] = 0;
+                        sum_vec[sum_i] = receive_counts[sum_i]; 
+                    } else {
+                        receive_displacements[sum_i] = receive_counts[sum_i - 1] + receive_displacements[sum_i - 1];
+                        sum_vec[sum_i] = receive_counts[sum_i] + sum_vec[sum_i - 1];
+                    }
+                }
+
+                for (auto& n : receive_counts) 
+                    sum_of_elems += n;
+            }
+
+            vacs_in.resize(sum_of_elems);
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            // Broadcast displacements and counts to all processes
+            MPI_Bcast(receive_displacements.data(), (int)receive_displacements.size(), MPI_INT, 0, MPI_COMM_WORLD);
+            MPI_Bcast(receive_counts.data(), (int)receive_counts.size(), MPI_INT, 0, MPI_COMM_WORLD);
+
+            MPI_Barrier(MPI_COMM_WORLD);
+            MPI_Gatherv(only_vacancies.data(), (only_vacancies.rows() * 4), MPI_INT, vacs_in.data(), receive_counts.data(), receive_displacements.data(), MPI_INT, 0, MPI_COMM_WORLD);
+
+            MPI_Barrier(MPI_COMM_WORLD);
+
+            int shift_idx = 0;
+            int coords_size = (int)(vacs_in.size() / 4);
+            
+            if (rank == 0) {
+                std::cout << "writing move_ticks: " << k << "\n";
+
+                // Initialize output matrices for vacancies and process ranks
+                FourDBoolArr vacancies_out((size_t)2, (size_t)total_dims[0], (size_t)total_dims[1], (size_t)total_dims[2]);
+                FourDArr proc_rank((size_t)2, (size_t)total_dims[0], (size_t)total_dims[1], (size_t)total_dims[2]);
+                vacancies_out.zero();
+                proc_rank.zero();
+                
+                // Print the sum vector
+                print_1Dvector(sum_vec);
+
+                // Process data and assign to output arrays
+                for (int idx = 0; idx < coords_size; idx++) {
+                    if ((shift_idx < num_procs) && (idx * 4 == sum_vec[shift_idx])) { 
+                        shift_idx++; 
+                    }
+                
+                    x_idx = shift_idx % xprocs;
+                    y_idx = floor(shift_idx / xprocs);
+                    
+                    x_chunk_start = (int)(total_dims[0] / xprocs * x_idx);
+                    y_chunk_start = (int)(total_dims[1] / yprocs * y_idx); 
+
+                    i1 = vacs_in[4 * idx];
+                    i2 = vacs_in[4 * idx + 1] + x_chunk_start;
+                    i3 = vacs_in[4 * idx + 2] + y_chunk_start;
+                    i4 = vacs_in[4 * idx + 3];
+                    
+                    if (!get_rank) {
+                        vacancies_out(i1, i2, i3, i4) = 1;
+                    } else {
+                        proc_rank(i1, i2, i3, i4) = shift_idx + 1;
+                    }
+                }
+
+                std::string output_filename = ss.str();
+                ss << folder << "/vacs/vacancies_output_" << i << "_" << l << "_" << k << "_" << t << "_moves.txt";
+                std::cout << "filename: " << ss.str() << "\n";
+
+                // Write the vacancies or vacancies and rank to file
+                if (!get_rank) {
+                    Matrix<int> all_vacancies = vacancies_out.nonzero();
+                    write_to_file(ss.str(), all_vacancies);
+                    std::cout << "all_vacancies.rows(): " << all_vacancies.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
+                    /*
+                    if (all_vacancies.rows() != curr_num_vacs) {
+                        std::cout << "Change in total number of vacancies in simulation -- all_vacancies.rows(): " << all_vacancies.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
+                        if (k != 0) {
+                            exit(0);
+                        }
+                    }
+                    */
+                } 
+                else {          
+                    Matrix<int> vacancies_and_rank = proc_rank.nonzero_elems(); 
+                    write_to_file(ss.str(), vacancies_and_rank);
+                    std::cout << "vacancies_and_rank.rows(): " << vacancies_and_rank.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
+                    /*
+                    if (vacancies_and_rank.rows() != curr_num_vacs) {
+                        std::cout << "Change in total number of vacancies in simulation -- vacancies_and_rank.rows(): " << vacancies_and_rank.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
+                        if (k != 0) {
+                            exit(0);
+                        }
+                    }
+                    */
+                }                
+                if (reconstruct == true) {
+                    reconstruct_ghost_sites(only_vacancies, xprocs, yprocs);
+                }                
+
+                ss.str("");
+                ss.clear();               
+            }
+
+            MPI_Barrier(MPI_COMM_WORLD);  // Synchronize all processes
+        }
+
+        /* \brief Sums up the vacancies across all processes and returns the total number of vacancies.
+        * 
+        * This function calculates the total number of vacancies across all processes in an MPI parallel environment.
+        * Each process sends its local vacancy data to the root process (rank 0), which gathers and processes the data
+        * from all processes, summing the number of vacancies and returning the result.
+        * 
+        * \param vacancies The matrix of sites of vacancies to be summed over.
+        * \param dims A vector containing the dimensions of the lattices (used to calculate chunks per process).
+        * \param xprocs The number of processes in the x direction.
+        * \param yprocs The number of processes in the y direction.
+        * \param nprocs The total number of processes.
+        * \param rank The rank of the current process.
+        * 
+        * \return The total number of vacancies across all processes.
+        */
+        int sum_vacs_allprocs(const Matrix<int>& only_vacancies, int xprocs, int yprocs) {
+            // Initialize variables
+            int size = (int)( only_vacancies.rows() * only_vacancies.cols() );  ///< Size of the vacancy matrix
+            std::vector<int> output(size);
+            int idx = 0;
+            int size2 = 0, size3 = 0, size_in;
+            int i1, i2, i3, i4, x_idx, y_idx, x_chunk_start, y_chunk_start;
+            std::vector<int> vacs_in;
+
+            std::cout << "rank: " << rank << " pre sum_vacs_allprocs only_vacancies.rows(): " << only_vacancies.rows() << "\n";
+
+            MPI_Status status;
+            MPI_Request request;
+            std::ostringstream ss;
+
+            // MPI communication buffers
+            std::vector<int> nums_and_proc(2);  ///< Number of elements and process rank
+            std::vector<int> num_proc_buffer(2);  ///< Buffer for receiving data from other processes
+            std::vector<int> receive_counts(num_procs);  ///< Number of elements to receive from each process
+            std::vector<int> receive_displacements(num_procs, 0);  ///< Displacements of received data
+            std::vector<int> sum_vec(num_procs);  ///< Running sum of received data sizes
+
+            int num_elems = (int)(only_vacancies.rows() * 4);  ///< Total number of elements in the vacancy matrix
+            nums_and_proc[0] = num_elems;
+            nums_and_proc[1] = rank;
+
+            int sum_of_elems = 0;
+
+            // Send the number of elements and rank to the root process (rank 0)
+            if (rank != 0) {
+                MPI_Isend(
+                    nums_and_proc.data(),  // Address of the message we are sending
+                    2,                     // Number of elements
+                    MPI_INT,               // MPI data type
+                    0,                     // Rank of receiving process
+                    4,                     // Message tag
+                    MPI_COMM_WORLD,        // MPI communicator
+                    &request 
+                );
+            }
+
+            MPI_Barrier(MPI_COMM_WORLD);  ///< Synchronize all processes
+
+            // Root process (rank 0) handles gathering of data
+            if (rank == 0) {
+                receive_counts[0] = num_elems;
+
+                // Receive the number of elements from each process
+                for (int rec_proc = 0; rec_proc < num_procs; rec_proc++) {
+                    if (rec_proc != rank) {
+                        MPI_Recv(
+                            num_proc_buffer.data(),  // Address of the message we are receiving
+                            2,                       // Number of elements
+                            MPI_INT,                 // MPI data type
+                            rec_proc,                // Rank of sending process
+                            4,                       // Message tag
+                            MPI_COMM_WORLD,          // MPI communicator
+                            &status 
+                        ); 
+
+                        receive_counts[num_proc_buffer[1]] = num_proc_buffer[0];
+                    }              
+                }
+                
+                // Compute the displacements and total sum of elements from each process
+                for (int sum_i = 0; sum_i < (int)receive_counts.size(); sum_i++) {
+                    if (sum_i == 0) {
+                        receive_displacements[sum_i] = 0;
+                        sum_vec[sum_i] = receive_counts[sum_i]; 
+                    } else {
+                        receive_displacements[sum_i] = receive_counts[sum_i - 1] + receive_displacements[sum_i - 1];
+                        sum_vec[sum_i] = receive_counts[sum_i] + sum_vec[sum_i - 1];
+                    }
+                }
+
+                // Sum up the total number of elements across all processes
+                for (auto& n : receive_counts) 
+                    sum_of_elems += n;
+            }
+
+            vacs_in.resize(sum_of_elems);  ///< Resize the vacancy data buffer
+
+            MPI_Barrier(MPI_COMM_WORLD);  ///< Synchronize all processes
+
+            // Broadcast the receive displacements and counts to all processes
+            MPI_Bcast(receive_displacements.data(), (int)receive_displacements.size(), MPI_INT, 0, MPI_COMM_WORLD);
+            MPI_Bcast(receive_counts.data(), (int)receive_counts.size(), MPI_INT, 0, MPI_COMM_WORLD);
+
+            MPI_Barrier(MPI_COMM_WORLD);  ///< Synchronize all processes
+
+            // Gather the vacancy data from all processes to rank 0
+            MPI_Gatherv(only_vacancies.data(), (only_vacancies.rows() * 4), MPI_INT, vacs_in.data(), receive_counts.data(), receive_displacements.data(), MPI_INT, 0, MPI_COMM_WORLD);
+
+            MPI_Barrier(MPI_COMM_WORLD);  ///< Synchronize all processes
+
+            int shift_idx = 0;
+            int coords_size = (int)(vacs_in.size() / 4);
+
+            // Root process (rank 0) processes the gathered data
+            if (rank == 0) {
+                FourDBoolArr vacancies_out((size_t)2, (size_t)total_dims[0], (size_t)total_dims[1], (size_t)total_dims[2]);  ///< Output array for vacancies
+                vacancies_out.zero();  ///< Initialize the output array
+
+                // Process each vacancy and update the output array
+                for (int idx = 0; idx < coords_size; idx++) {
+                    if ((shift_idx < num_procs) && (idx * 4 == sum_vec[shift_idx])) { 
+                        shift_idx++;  ///< Move to the next process
+                    }
+
+                    x_idx = shift_idx % xprocs;
+                    y_idx = floor(shift_idx / xprocs);
+
+                    // Calculate chunk starting indices for x and y
+                    x_chunk_start = (int)(proc_dims[0] / xprocs * x_idx);
+                    y_chunk_start = (int)(proc_dims[1] / yprocs * y_idx);
+
+                    i1 = vacs_in[4 * idx];
+                    i2 = vacs_in[4 * idx + 1] + x_chunk_start;
+                    i3 = vacs_in[4 * idx + 2] + y_chunk_start;
+                    i4 = vacs_in[4 * idx + 3];
+
+                    vacancies_out(i1, i2, i3, i4) = 1;  ///< Set vacancy in the output array
+                }
+
+                // Return the total number of non-zero vacancies
+                Matrix<int> all_vacancies = vacancies_out.nonzero();
+                std::cout << "rank: " << rank << " pre sum_vacs_allprocs all_vacancies.rows(): " << only_vacancies.rows() << "\n";
+                return (int)all_vacancies.rows();
+            }
+
+            // In case of other ranks, no output is generated.
+        }
+
+
+        /**
+        * @brief Reconstructs ghost sites for a lattice in a parallel simulation.
+        *
+        * This function identifies and updates ghost sites based on vacancies within 
+        * the lattice, ensuring periodic boundary conditions and communication 
+        * between neighboring processes in a distributed simulation.
+        *
+        * @param only_vacancies A matrix containing vacancy information. Each row specifies 
+        *                       a vacancy's lattice position and coordinates (x, y, z).
+        * @param xprocs         The number of processes in the x-direction.
+        * @param yprocs         The number of processes in the y-direction.
+        */
+        void reconstruct_ghost_sites(const Matrix<int>& only_vacancies, int xprocs, int yprocs) {
+            int lattice_pos; ///< Lattice position of the vacancy.
+            int x, y, z; ///< Coordinates of the vacancy in the lattice.
+            int x_idx, y_idx, z_idx; ///< Indices for the vacancy position within process-local arrays.
+
+            // Compute periodic boundary indices for x and y directions.
+            int xlo_edge = (((chunk_bounds[0][0] - 1) % proc_dims[0] + proc_dims[0]) % proc_dims[0]);
+            int xhi_edge = (((chunk_bounds[0][1]) % proc_dims[0] + proc_dims[0]) % proc_dims[0]);
+            int ylo_edge = (((chunk_bounds[1][0] - 1) % proc_dims[1] + proc_dims[1]) % proc_dims[1]);
+            int yhi_edge = (((chunk_bounds[1][1]) % proc_dims[1] + proc_dims[1]) % proc_dims[1]);
+
+            // Size vectors for neighboring processes in positive and negative directions.
+            std::vector<size_t> x_dims = proc_neg_x_neighbors.size_vec;
+            std::vector<size_t> y_dims = proc_neg_y_neighbors.size_vec;
+            std::vector<size_t> x_dims_pos = proc_pos_x_neighbors.size_vec;
+            std::vector<size_t> y_dims_pos = proc_pos_y_neighbors.size_vec;
+
+            // Loop through all vacancies and process ghost site conditions.
+            for (int vac_idx = 0; vac_idx < (int)only_vacancies.rows(); vac_idx++) {
+                lattice_pos = only_vacancies[vac_idx][0];
+                x = only_vacancies[vac_idx][1];
+                y = only_vacancies[vac_idx][2];
+                z = only_vacancies[vac_idx][3];
+
+                if ((xprocs != 1) || (yprocs != 1)) {
+                    // Handle ghost sites for first layer (111 and 100 moves).
+                    if ((y >= (chunk_bounds[1][0] - 1)) && (y < (chunk_bounds[1][1]))) {
+                        if ((x == xlo_edge) && (lattice_pos == 1)) {
+                            y_idx = mod_with_bounds((y - chunk_bounds[1][0] + 1), proc_dims[1]);
+                            proc_neg_x_neighbors(0, 1, y_idx, z_idx) = 1;
+
+                            // Preserve corner periodic boundary conditions.
+                            if ((y_idx == x_dims[2] - 1) && (proc_neighbors(rank, 2) == rank)) {
+                                proc_neg_x_neighbors(0, 1, 0, z_idx) = 1;
+                            }
+
+                            if ((y == ylo_edge)) {
+                                x_idx = mod_with_bounds((x - chunk_bounds[0][0] + 1), proc_dims[0]);
+                                proc_neg_y_neighbors(0, 1, x_idx, z_idx) = 1;
+                            }
+                        }
+                    }
+                    // Further handling for the x and y edges...
+                    if ((x >= (chunk_bounds[0][0])) && (x < (chunk_bounds[0][1] + 1))) {
+                        if ((y == yhi_edge) && (lattice_pos == 1)) {
+                            x_idx = mod_with_bounds((x - chunk_bounds[0][0]), proc_dims[0]);
+                            proc_pos_y_neighbors(0, 1, x_idx, z_idx) = 1;
+
+                            // Preserve corner periodic boundary conditions.
+                            if ((x_idx == 0) && (proc_neighbors(rank, 0) == rank)) {
+                                proc_pos_y_neighbors(0, 1, y_dims_pos[2] - 1, z_idx) = 1;
+                            }
+                        }
+                    }
+
+                    // Handle ghost sites for the second layer (100 moves).
+                    if ((y >= (chunk_bounds[1][0] - 1)) && (y < (chunk_bounds[1][1]))) {
+                        if ((x == xlo_edge) && (lattice_pos == 0)) {
+                            y_idx = mod_with_bounds((y - chunk_bounds[1][0] + 1), proc_dims[1]);
+                            proc_neg_x_neighbors(0, 0, y_idx, z_idx) = 1;
+
+                            // Further handling for boundary conditions...
+                        }
+                    }
+                }
+            }
+        }
+
 };
 
 /*---------------------------------------------------------------------------*/
@@ -3849,8 +4425,6 @@ std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::ve
             new_lattice->edge_directions(i,j) = temp_edge[i][j];
         }
     } 
-
-
 
     for (size_t i=0; i<2; i++) {
         for (size_t j=0; j<(size_t)dims_int[0]; j++) {

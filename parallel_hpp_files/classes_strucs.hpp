@@ -162,9 +162,6 @@ public:
                 }
             }
 
-            //std::cout << "rank: " << rank << " vacancies_pos.print(): " << "\n"; 
-            //(*this).print();
-
             for (size_t row_idx = (size_t)(rows_-2); row_idx > (size_t)(row-1); row_idx--) {
                 for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
                     //std::cout << "rank: " << rank << " row_idx: " << row_idx << "\n";    

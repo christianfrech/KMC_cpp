@@ -26,35 +26,194 @@
 
 #define CEILING(x,y) ((x + y - 1) / y)
 
- /*! \brief A class for storing data (rate constants) corresponding to a subset of coordinates in a FourDArr object*/
-class Region {
-    public:
-        int id;
-        std::string bias;
-        std::string type;
-        std::vector<int> slopes;
-        std::vector<int> shifts;
-        std::vector<int> lowerbound;
-        std::vector<int> upperbound;
-        std::vector< std::vector<int> > params;
-        std::vector< std::vector< std::vector<double> > > energies; 
+/*! \brief A class for storing 4-D arrays of ints*/
+class FourDDoubleArr {
+public:
+    /*! \brief Constructor
+     * \param [in] len1 len2 len3 len4    Lengths of the 4 dimensions of the array
+     */
 
-        Region(int id_in, std::string reg_type, std::string bias_direc, std::vector< std::vector<int> > params_in):
-            id(id_in), 
-            type(reg_type),
-            bias(bias_direc),
-            params(params_in)
+    std::vector<size_t> size_vec;
+    std::vector<double> data_; ///< The data stored in the array
 
-        {
-            if (type == "GB") {
-                slopes = params[0];
-                shifts = params[1];
+    FourDDoubleArr(size_t len1, size_t len2, size_t len3, size_t len4)
+    : len1_(len1)
+    , len2_(len2)
+    , len3_(len3)
+    , len4_(len4)
+    , data_(len1 * len2 * len3 * len4)
+    {
+        //data_ = (double *)malloc(sizeof(double) * len1 * len2 * len3 * len4);
+        size_vec.push_back(len1);
+        size_vec.push_back(len2);
+        size_vec.push_back(len3);
+        size_vec.push_back(len4);
+    }
+    
+    /*! \brief Access an element of the 4-D array
+     * \param [in] i1 First index
+     * \param [in] i2 Second index
+     * \param [in] i3 Third index
+     * \param [in] i4 Fourth index
+     * \returns Reference to array element
+     */
+    double& operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
+        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
+    }
+    
+    double  operator() (size_t i1, size_t i2, size_t i3, size_t i4) const {
+        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
+    }
+    
+    /*
+    retrieve nonzero elements
+    */
+    std::vector< std::vector<int> > nonzero() {
+        int vec_size = (len1_*len2_*len3_*len4_)/8;
+        std::vector<std::vector<int>> vec_out(vec_size, std::vector<int>(4));
+
+        int elem = 0; 
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
+                            if (elem >= (vec_size-1)) {
+                                vec_out.resize(vec_size*2, std::vector<int>(4));
+                                vec_size = vec_size * 2;
+                            }
+                            vec_out[elem][0] = i1;
+                            vec_out[elem][1] = i2;
+                            vec_out[elem][2] = i3;
+                            vec_out[elem][3] = i4;
+                            elem ++;
+                        }
+                    }
+                }
             }
-            else if (type == "BLOCK") {
-                lowerbound = params[0];
-                upperbound = params[1];
+        } 
+        vec_out.resize(elem);
+        
+        return vec_out;
+    }
+
+    /*
+    print data field of a FourDArr object
+    */
+    void print_4Dvector() { 
+        std::cout << "\n[ ";
+        for (int i1=0; i1<(int)len1_; i1++) {
+            std::cout << "[ ";
+            for (int i2=0; i2<(int)len2_; i2++) {
+                std::cout << "[ ";
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    std::cout << "[ ";
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
+                    }
+                    std::cout << "] ";
+                    std::cout << "\n  ";
+                }
+                std::cout << "] ";
+                std::cout << "\n  ";
             }
+            std::cout << "] ";
+            std::cout << "\n  ";
+        } 
+        std::cout << "] \n\n";
+    }
+
+    /*
+    retrieve elements to a 1D slice of a FourDArr object corresponding to coordinates input
+    */
+    std::vector<int> grab_idxs(std::vector< std::vector<int> > coords) {
+        std::vector<int> output;
+
+        for (int i=0; i<(int)coords.size(); i++) {
+            std::vector<int> coord = coords[i];
+            int w = coord[0];
+            int x = coord[1];
+            int y = coord[2];
+            int z = coord[3];
+
+            int value = (int)(*this)(w,x,y,z);
+            output.push_back(value);
         }
+        return output;
+    }
+
+    /*
+    assign elements to a 1D slice of a FourDArr object corresponding to values input
+    */
+    void assign_idxs(std::vector< std::vector<int> > coords, std::vector<int> values) {
+        size_t w;
+        size_t x;
+        size_t y;
+        size_t z;
+        
+        
+
+        for (int i=0; i<(int)coords.size(); i++) {
+            std::vector<int> coord = coords[i];
+            w = (size_t)coord[0];
+            x = (size_t)coord[1];
+            y = (size_t)coord[2];
+            z = (size_t)coord[3];
+            (*this)(w,x,y,z) = values[i];
+        }
+    }
+
+    Matrix<int> nonzero_elems() {
+        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
+        Matrix<double> mat_out(vec_size, 5);
+        mat_out.zero();
+
+        int elem = 0; 
+        
+        for (int i1=0; i1<(int)len1_; i1++) {
+            for (int i2=0; i2<(int)len2_; i2++) {
+                for (int i3=0; i3<(int)len3_; i3++) {
+                    for (int i4=0; i4<(int)len4_; i4++) {
+                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0 ) {
+
+                            if (elem >= (vec_size-1)) {
+                                mat_out.reshape(vec_size*2, 5);
+                                vec_size = vec_size * 2;
+                            }
+                            
+                            mat_out[elem][0] = i1;
+                            mat_out[elem][1] = i2;
+                            mat_out[elem][2] = i3;
+                            mat_out[elem][3] = i4;
+                            mat_out[elem][4] = (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4);
+                            elem ++;
+                        }
+                    }
+                }
+            }
+        } 
+        mat_out.reshape(elem, 5);
+        return mat_out;
+    }
+    
+    /*
+    set all elements in data field to zero
+    */
+    void zero() {
+        for (int i1=0; i1<len1_; i1++) {
+            for (int i2=0; i2<len2_; i2++) {
+                for (int i3=0; i3<len3_; i3++) {
+                    for (int i4=0; i4<len4_; i4++) {
+                        (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) = 0;
+                    }
+                }
+            }    
+        }
+    }
+
+private:
+    size_t len1_, len2_, len3_, len4_; ///< Dimensions of the array
+
 };
 
 class FourDBoolArr {
@@ -63,37 +222,37 @@ class FourDBoolArr {
     
     class BoolReference
     {
-    private:
-        uint8_t & value_;
-        uint8_t mask_;
-        
-        void zero(void) noexcept { value_ &= ~(mask_); }
-        
-        void one(void) noexcept { value_ |= (mask_); }
-        
-        bool get() const noexcept { return !!(value_ & mask_); }
-        
-        void set(bool b) noexcept
-        {
-            if(b)
-                one();
-            else
-                zero();
-        }
-        
-    public:
-        BoolReference(uint8_t & value, uint8_t nbit)
-        : value_(value), mask_(uint8_t(0x1) << nbit)
-        { }
+        private:
+            uint8_t & value_;
+            uint8_t mask_;
+            
+            void zero(void) noexcept { value_ &= ~(mask_); }
+            
+            void one(void) noexcept { value_ |= (mask_); }
+            
+            bool get() const noexcept { return !!(value_ & mask_); }
+            
+            void set(bool b) noexcept
+            {
+                if(b)
+                    one();
+                else
+                    zero();
+            }
+            
+        public:
+            BoolReference(uint8_t & value, uint8_t nbit)
+            : value_(value), mask_(uint8_t(0x1) << nbit)
+            { }
 
-        BoolReference(const BoolReference &ref): value_(ref.value_), mask_(ref.mask_) {}
-        
-        BoolReference & operator=(bool b) noexcept { set(b); return *this; }
-        
-        BoolReference & operator=(const BoolReference & br) noexcept { return *this = bool(br); }
-        
-        operator bool() const noexcept { return get(); }
-        };
+            BoolReference(const BoolReference &ref): value_(ref.value_), mask_(ref.mask_) {}
+            
+            BoolReference & operator=(bool b) noexcept { set(b); return *this; }
+            
+            BoolReference & operator=(const BoolReference & br) noexcept { return *this = bool(br); }
+            
+            operator bool() const noexcept { return get(); }
+    };
     
 public:
     const std::tuple<size_t, size_t, size_t, size_t> size_tuple;
@@ -356,6 +515,7 @@ private:
     int* data_; ///< The data stored in the array
 };
 
+
 /*! \brief A class for representing and manipulating matrices with variable dimension sizes
  * \tparam mat_type The type of elements to be stored in the matrix
  */
@@ -508,6 +668,241 @@ class Matrix {
         std::vector<mat_type> data_;
 };
 
+
+/**
+ * @class Region
+ * @brief A class for storing data (rate constants) corresponding to a subset of coordinates in a FourDArr object.
+ */
+class Region {
+public:
+    int id;  ///< Unique identifier for the region.
+    std::string bias;  ///< Bias direction of the region.
+    std::string type;  ///< Type of region (e.g., "GB" or "BLOCK").
+    std::vector<int> slopes;  ///< Slopes of the region (used for "GB" type).
+    std::vector<int> shifts;  ///< Shifts of the region (used for "GB" type).
+    std::vector<int> lowerbound;  ///< Lower bounds for the region (used for "BLOCK" type).
+    std::vector<int> upperbound;  ///< Upper bounds for the region (used for "BLOCK" type).
+    std::vector<std::vector<int>> params;  ///< Parameters defining the region.
+    std::vector<std::vector<std::vector<double>>> energies;  ///< Energy values for the region.
+    FourDDoubleArr region_rates_L;  ///< Left transition rates in the region.
+    FourDDoubleArr region_rates_R;  ///< Right transition rates in the region.
+    std::mt19937 rand_num;  ///< Random number generator for the region.
+    double mean;  ///< Mean value of the energy barrier distribution.
+    double stddev;  ///< Standard deviation of the energy barrier distribution.
+    double barrier_min;  ///< Minimum allowed energy barrier.
+    double barrier_max;  ///< Maximum allowed energy barrier.
+    std::vector<int> dimensions;  ///< Dimensions of the region.
+    bool random;  ///< Indicates whether rates are randomly assigned.
+    std::normal_distribution<double> distribution;  ///< Normal distribution for random barrier generation.
+    std::vector<double> rates;  ///< Predefined rates for the region.
+    bool interface;  ///< Whether the region has an interface.
+    int interface_i;  ///< Index of the interface.
+    int interface_dim;  ///< Dimension of the interface.
+    double interface_100_rate;  ///< Rate for the 100 interface.
+
+    /**
+     * @brief Constructs a Region object with given parameters.
+     * 
+     * @param id_in Unique identifier for the region.
+     * @param reg_type Type of region ("GB" or "BLOCK").
+     * @param bias_direc Bias direction for the region.
+     * @param params_in Parameters defining the region.
+     * @param distribution Distribution parameters for random barriers.
+     * @param random_val Boolean indicating whether rates are randomized.
+     * @param rates_in Vector of predefined rates.
+     * @param interface_params Parameters for interface configuration.
+     * @param interface_100_rate_in Rate for the 100 interface.
+     */
+    Region(int id_in, std::string reg_type, std::string bias_direc, std::vector<std::vector<int>> params_in,
+           std::vector<double> distribution, bool random_val, std::vector<double> rates_in,
+           std::vector<int> interface_params, double interface_100_rate_in);
+
+    /**
+     * @brief Computes the average connectivity of sites within the region.
+     * 
+     * @return The average connectivity of sites.
+     */
+    double avg_connectivity() {
+        std::vector< std::vector<int> > diag_directions = {{0,0,0}, {1,0,0}, {0,1,0}, {1,1,0}, {0,0,1}, {1,0,1}, {0,1,1}, {1,1,1}};
+        int degree_sum = 0;
+        int site_count = 0;
+        
+        for (int i=0; i<(int)dimensions[0]; i++) {
+            for (int j=0; j<(int)dimensions[1]; j++) {
+                for (int k=0; k<(int)dimensions[2]; k++) {
+                    for (int l=0; l<(int)dimensions[3]; l++) {
+                        
+                        if ( region_rates_L(i,j,k,l) != -1) {
+
+                            //std::cout << "i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
+                            int connectivity = 0;
+                            
+                            // moving vacancy from bc site to vertex site
+                            if (i == 1) {
+                                for (int i=0; i<(int)diag_directions.size(); i++) {
+                                    //if ((vac[3] == 0)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                                    //else if ((vac[3] == (int)(dimensions[3]-1))) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                                    if ( region_rates_L( 0, (j + diag_directions[i][0]), (k + diag_directions[i][1]), 
+                                            (l + diag_directions[i][2])) != -1) { connectivity ++; }
+                                }
+                            }
+
+                            // moving vacancy from vertex site to bc site     
+                            else if (i == 0) {
+                                for (int i=0; i<(int)diag_directions.size(); i++) {
+                                    //if ((vac[3] == 0)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                                    //else if ((vac[3] == (int)(lattice_dim[2]-1))) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                                    if ( region_rates_L( 1, (j - diag_directions[i][0]), (k - diag_directions[i][1]), 
+                                            (l - diag_directions[i][2])) != -1) { connectivity ++; }
+                                }
+                            }
+
+                            degree_sum += connectivity;
+                            site_count ++;
+                        }
+                    }
+                }
+            }
+        }
+        
+        double avg_degree = (double)degree_sum / (double)site_count;
+        
+        return avg_degree;
+    }
+
+    /**
+     * @brief Generates a random energy barrier within specified bounds.
+     * 
+     * @return A randomly generated barrier value.
+     */
+    double get_rand_barrier() {
+
+        double barrier = distribution(rand_num);
+        
+        while ((barrier > barrier_max) || (barrier < barrier_min)) { barrier = distribution(rand_num); }
+        
+        return barrier;
+
+    }
+
+    /**
+     * @brief Retrieves the transition rate for a given site in the region.
+     * 
+     * @param i First index (layer).
+     * @param j Second index (x-coordinate).
+     * @param k Third index (y-coordinate).
+     * @param l Fourth index (z-coordinate).
+     * @param LR_idx Indicates whether to retrieve from Left (1) or Right (0) rate array.
+     * @return The transition rate at the specified site.
+     */
+    double get_rate(int i, int j, int k, int l, int LR_idx) {
+
+        int i_new = i;
+        int j_new = j - lowerbound[0];
+        int k_new = k - lowerbound[1];
+        int l_new = l - lowerbound[2];
+
+        if (LR_idx) return region_rates_L(i_new, j_new, k_new, l_new);
+        else return region_rates_R(i_new, j_new, k_new, l_new);
+
+    }
+
+    /**
+     * @brief Randomly blocks sites within the region until the connectivity is within a desired range.
+     */
+    void random_blocking() {
+        int i_new; int j_new; int k_new; int l_new;
+        std::random_device dev;
+        std::mt19937 rng(dev());
+        std::uniform_int_distribution<std::mt19937::result_type> i_rand(0,1); 
+        std::uniform_int_distribution<std::mt19937::result_type> j_rand(0,(int)(dimensions[1]));
+        std::uniform_int_distribution<std::mt19937::result_type> k_rand(0,(int)(dimensions[2])); 
+        std::uniform_int_distribution<std::mt19937::result_type> l_rand(0,(int)(dimensions[3])); 
+
+        double connectivity = avg_connectivity();
+        std::cout << "connectivity: " << connectivity << "\n";
+        
+        while ((connectivity < 5) || (7 < connectivity)) {
+
+            i_new = i_rand(rng); 
+            j_new = j_rand(rng); 
+            k_new = k_rand(rng); 
+            l_new = l_rand(rng); 
+            //std::cout << "i_new: " << i_new << " j_new: " << j_new << " k_new: " << k_new << " l_new: " << l_new << "\n";
+
+            region_rates_L(i_new, j_new, k_new, l_new) = -1;
+            region_rates_R(i_new, j_new, k_new, l_new) = -1;
+
+            connectivity = avg_connectivity();
+        }
+    }
+
+    /**
+     * @brief Generates random barriers according to a distribution, checks if they are within bounds,
+     * and assigns them to sites in the region rate map.
+     * 
+     * @param reg_rates A vector of rates to be assigned within the region.
+     */
+    void random_barrier_assigner(std::vector<double> reg_rates) {
+
+        int x_range = dimensions[1];
+        int y_range = dimensions[2];
+        int z_range = dimensions[3];
+
+        std::cout << "reg_rates: \n";
+        print_1Dvector(reg_rates);
+
+        double rand_barrier;
+        double rate;
+        double EULER = 2.71828182845904523536;
+
+        int direc;
+        if (reg_rates[0] > reg_rates[1]) direc = 0;
+        else direc = 1;
+
+        std::cout << "x_range: " << x_range << " y_range " << y_range << " z_range " << z_range << "\n";
+
+        // iterating over region sites
+        for (int i=0; i<2; i++) {
+            for (int j=0; j<x_range; j++) {
+                for (int k=0; k<y_range; k++) {
+                    for (int l=0; l<z_range; l++) {
+                        if (region_rates_L(i,j,k,l) != -1) {
+                            
+                            rand_barrier = get_rand_barrier();
+                            rate = 5e12 * std::pow(EULER, (-rand_barrier / (300* 8.6173e-5)));
+                            
+                            if (direc == 0) {
+
+                                if (rand_barrier < 0) {
+                                    region_rates_L(i,j,k,l) =  rate;
+                                    region_rates_R(i,j,k,l) =  5e12;
+                                }
+                                else {
+                                    region_rates_L(i,j,k,l) =  5e12;
+                                    region_rates_R(i,j,k,l) =  rate;
+                                }
+                            }
+                            else {
+
+                                if (rand_barrier < 0) {
+                                    region_rates_L(i,j,k,l) =  5e12;
+                                    region_rates_R(i,j,k,l) =  rate;
+                                }
+                                else {
+                                    region_rates_L(i,j,k,l) =  rate;
+                                    region_rates_R(i,j,k,l) =  5e12;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
+
+
 /*------------------------------------------------------------------------------------*/
  /*! \brief A class for storing a simulation cell of atoms and propogating moves around the 
  lattice */
@@ -515,9 +910,7 @@ class Lattice {
 
     std::vector< std::vector<int> > diag_directions;
     std::vector< std::vector<int> > edge_directions;
-
     std::map<int, double> rate_typedict;
-
     std::vector<bool> periodic;
 
     std::vector<int> ver_tuples_cumsum;
@@ -562,6 +955,9 @@ class Lattice {
         int num_of_vacs;
         int void_threshold;
         double void_barrier;
+        double terrace_barrier_100;
+        double terrace_barrier_111;
+        double void_gb_diss_barrier;
 
         Lattice(int xdim, int ydim, int zdim, int num_vacancies, int num_regions, std::vector<Region*> regs_in):
             regions(regs_in),
@@ -569,11 +965,14 @@ class Lattice {
             vacancies((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             bc_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             region_sites((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
+            probs(num_vacancies),
+            rates(num_vacancies),
             moves_coords((14 * num_vacancies), 4),
             moves_shifts((14 * num_vacancies), 3),
             moves_lattice((14 * num_vacancies), 1),
             moves_vacs((14 * num_vacancies), 1),
             ratecatalog_111(2, exp<int>(2,8)),
+            
             ratecatalog_100(2, exp<int>(2,14)),
             regionrates_111_L(num_regions, exp<int>(2,8)),
             regionrates_111_R(num_regions, exp<int>(2,8)),
@@ -594,9 +993,57 @@ class Lattice {
                 num_of_vacs = num_vacancies;
             }
 
+        
+        /**
+        * @brief Wrapper function to assign rates to region-specific rate catalogs.
+        * 
+        * @param temp_regions A vector of pointers to Region objects representing different regions.
+        * @param misc_rates A constant reference to a vector of double values representing miscellaneous rates.
+        */
+        void assign_region_rates_wrapper(std::vector<Region*>& temp_regions, const std::vector<double>& misc_rates) {
+            for (int i=0; i<(int)temp_regions.size(); i++) {
+                assign_region_rates(temp_regions[i], misc_rates, i);
+            }
+        }
 
-        /*
-        routine to check if a adjacent site is unoccupied for move
+
+        /**
+        * @brief Assigns rates to region-specific rate catalogs.
+        * 
+        * @param region A constant pointer to a Region object whose rates will be assigned.
+        * @param misc_rates A constant reference to a vector of double values representing miscellaneous rates.
+        * @param i An integer index representing the position of the region in the rate catalog.
+        */
+        void assign_region_rates(const Region* region, const std::vector<double>& misc_rates, int i) {
+        
+            int cols = regionrates_100_L.cols();
+            for (size_t j=0; j<cols; j++) {
+                regionrates_100_L(i,j) = misc_rates[1];
+                regionrates_100_R(i,j) = misc_rates[1];
+            }
+
+            cols = regionrates_111_L.cols();
+            for (size_t j=0; j<cols; j++) {
+                regionrates_111_L(i,j) = region->rates[0];
+                regionrates_111_R(i,j) = region->rates[1];
+            }         
+        }
+
+
+        /**
+        * @brief Checks if an adjacent site is unoccupied for a move.
+        *
+        * This function determines the number of nearest-neighbor vacancies of a given site
+        * in a specified lattice configuration.
+        *
+        * @param i First coordinate of the site.
+        * @param j Second coordinate of the site.
+        * @param k Third coordinate of the site.
+        * @param l Fourth coordinate of the site.
+        * @param direc_sign Directional sign indicator.
+        * @param s Direction index.
+        * @param lattice Type of lattice structure.
+        * @return int Number of nearest-neighbor vacancies.
         */
         int get_NNcountofNN(int i, int j, int k, int l, int direc_sign, int s, int lattice) {
             int i1; int i2; int i3; int i4; int direc_sign_NN;
@@ -611,13 +1058,14 @@ class Lattice {
                 i4 = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]); 
             }
             else if ((lattice == 0) || (lattice == 1)) {
-                if (lattice == 0) { i1 = 1; direc_sign_NN = -1; }
-                else if (lattice == 1) { i1 = 0; direc_sign_NN = 1; }
+                if (lattice == 0) { i1 = 1; direc_sign_NN =  1; }
+                else if (lattice == 1) { i1 = 0; direc_sign_NN = -1; }
                 i2 = (((j + direc_sign * diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
                 i3 = (((k + direc_sign * diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
                 i4 = (((l + direc_sign * diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
             }
 
+            //std::cout << " i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
             //std::cout << " i1: " << i1 << " i2: " << i2 << " i3: " << i3 << " i4: " << i4 << "\n";
             int NN_count = 0;
             for (int s2=0; s2 < (int)diag_directions.size(); s2++) {
@@ -633,7 +1081,7 @@ class Lattice {
                 else {
                     //std::cout << " i1_NN: " << i1_NN << " i2_NN: " << i2_NN << " i3_NN: " << i3_NN << " i4_NN: " << i4_NN << "\n";
                     if ((i1_NN == i) && (i2_NN == j) && (i3_NN == k) && (i4_NN == l)) {}
-                    else if (vacancies(i1_NN,i2_NN,i3_NN,i4_NN)) {NN_count++;} //std::cout << "incriment \n";}
+                    else if (vacancies(i1_NN,i2_NN,i3_NN,i4_NN)) {NN_count++;} // std::cout << "incriment \n";}
                 }
             }
 
@@ -641,6 +1089,12 @@ class Lattice {
         }
         
 
+        /**
+        * @brief Computes all possible atomic moves in the lattice.
+        *
+        * This function identifies all potential atomic moves within the system,
+        * calculates their corresponding rates, and stores them for further processing.
+        */
         void new_get_actions() {
             int curr_move_num = 0; // total number of moves at this current timestep  
             double rate; 
@@ -653,6 +1107,7 @@ class Lattice {
             int i=0; int j=0; int k=0; int l=0;
             int bulk_rate_count = 0;
             int NN_vac = 0;
+            int NN_newsite = 0;
 
             // looping over all vacancies in system
             for (int idx=0; idx < (int)vacancies_pos.rows(); idx++) {
@@ -661,6 +1116,7 @@ class Lattice {
                 j = vacancies_pos[idx][1];
                 k = vacancies_pos[idx][2];
                 l = vacancies_pos[idx][3];
+                //std::cout << "idx: " << idx << " i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
 
                 if ((curr_move_num + (num_interface_sites - vacs_on_interface)) >= ((int)moves_shifts.rows() - 20)) {
                     // resizing data structures to accommodate all moves 
@@ -703,11 +1159,14 @@ class Lattice {
                             moves_shifts[curr_move_num][2] = - diag_directions[s][2]; 
                             moves_lattice[curr_move_num][0] = 0;
                             moves_vacs[curr_move_num][0] = idx;
-                            
+
+                            NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+
                             // getting rate corresponding to move
-                            if (NN_vac >= void_threshold) { rate = void_barrier; }  
+                            //if ((NN_vac >= void_threshold) && (NN_newsite < void_threshold)) { rate = void_barrier; }  
+                            if ((NN_vac >= void_threshold) && (NN_newsite >= void_threshold)) { rate = terrace_barrier_111; }
                             else { 
-                                rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0]); 
+                                rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
                                 bulk_rate_count++;
                             }
 
@@ -723,6 +1182,7 @@ class Lattice {
                         
                         else if ((i == 1) && (vacancies(0, (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
                             // checking that bc site -> vertex site move has new site occupied by atom
+                            
                             moves_coords[curr_move_num][1] = (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
                             moves_coords[curr_move_num][2] = (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
                             moves_coords[curr_move_num][3] = (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
@@ -731,13 +1191,22 @@ class Lattice {
                             moves_shifts[curr_move_num][2] = diag_directions[s][2];
                             moves_lattice[curr_move_num][0] = 1;
                             moves_vacs[curr_move_num][0] = idx; 
+
+                            //NN_vac = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                            //std::cout << "diag_directions[" << s << "][i] \n";
+                            //std::cout << "NN_vac: " << NN_vac << "\n";
+
                             
                             // getting rate corresponding to move
-                            if (NN_vac >= void_threshold) { rate = void_barrier; }  
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+
+                            // getting rate corresponding to move
+                            //if ((NN_vac >= void_threshold) && (NN_newsite < void_threshold)) { rate = void_barrier; }  
+                            if ((NN_vac >= void_threshold) && (NN_newsite >= void_threshold)) { rate = terrace_barrier_111; }
                             else { 
-                                rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0]);
-                                bulk_rate_count++; 
-                                }
+                                rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
+                                bulk_rate_count++;
+                            }
 
                             if (rate == -1) {curr_move_num --;}
                             else {
@@ -768,14 +1237,29 @@ class Lattice {
                         
                         if (i == 0) {
                             moves_lattice[curr_move_num][0] = 2;
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 2);
+                            //std::cout << "edge_directions[" << s << "][i] \n";
+                            //std::cout << "NN_vac: " << NN_vac << "\n";
+
                         }
                         else if (i == 1) {
                             moves_lattice[curr_move_num][0] = 3;
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 3);
+                            //std::cout << "edge_directions[" << s << "][i] \n";
+                            //std::cout << "NN_vac: " << NN_vac << "\n";
                         }
                         
                         // getting rate corresponding to move
-                        rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0]);
-                        
+                        //NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+
+                        // getting rate corresponding to move
+                        //if ((NN_vac >= void_threshold) && (NN_newsite < void_threshold)) { rate = void_barrier; }  
+                        if ((NN_vac >= void_threshold) && (NN_newsite >= void_threshold)) { rate = terrace_barrier_100; }
+                        else { 
+                            rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
+                            bulk_rate_count++;
+                        }
+
                         if (rate == -1) {curr_move_num --;}
                         else {
                             if (curr_move_num == 0) {rate_cumsum[curr_move_num] = rate;}
@@ -816,12 +1300,20 @@ class Lattice {
             moves_coords.reshape(num_of_moves, 4);
             moves_shifts.reshape(num_of_moves, 3);
             moves_lattice.reshape(num_of_moves, 1);
+            //exit(0);
         }
         
-        /* 
-        function for finding rate corresponding to NN-encoding and move type 
+        /**
+        * @brief Function for finding the rate corresponding to NN-encoding and move type.
+        *
+        * @param coord Pointer to an array representing the coordinates.
+        * @param shift Pointer to an array representing the shift in coordinates.
+        * @param lattice The lattice type.
+        * @param curr_NN The current nearest neighbor count.
+        * @param new_NN The new nearest neighbor count.
+        * @return The rate constant for the move.
         */
-        double new_get_rateconstants(int* coord, int* shift, int lattice) {  
+        double new_get_rateconstants(int* coord, int* shift, int lattice, int curr_NN, int new_NN) {  
             
             double rate = -1; 
             int LR_idx;  // index corresponding to direction of movement in lattice (left/right)
@@ -902,21 +1394,41 @@ class Lattice {
                     std::cout << "ERROR: invalid directional bias" << "\n";
                     exit(0);
                 }
-                
-                if ((lattice == 0) || (lattice == 1)) {
-                    if (LR_idx == 1) {rate = regionrates_111_L[(reg_id-1)][idx];}
-                    else if (LR_idx == 0) {rate = regionrates_111_R[(reg_id-1)][idx];}
-                    
+
+                if ((lattice == regions[(reg_id-1)]->interface_i) && 
+                        (regions[(reg_id-1)]->interface) && (shift[regions[(reg_id-1)]->interface_dim] != 0)) {
+                    rate = regions[(reg_id-1)]->interface_100_rate;
                 }
-                else if ((lattice == 2) || (lattice == 3)) {
-                    if (LR_idx == 1) {rate = regionrates_100_L[(reg_id-1)][idx];}
-                    else if (LR_idx == 0) {rate = regionrates_100_R[(reg_id-1)][idx];}
-                    else if (LR_idx == -1) {rate = ratecatalog_100[0][idx];}
+                else if (regions[(reg_id-1)]->random) {
+                    if ( regions[(reg_id-1)]->get_rate(coord[0], coord[1], coord[2], coord[3], LR_idx) == -1) rate = -1;
+                    
+                    else if ((curr_NN >= void_threshold) && (new_NN < void_threshold)) { 
+                        rate = void_gb_diss_barrier; 
+                    }  
+                    else {
+                        if (LR_idx == 1) rate = regions[(reg_id-1)]->get_rate(coord[0], coord[1], coord[2], coord[3], LR_idx);
+                        if (LR_idx == 0) rate = regions[(reg_id-1)]->get_rate(coord[0], coord[1], coord[2], coord[3], LR_idx);
+                    }
                 }
                 else {
-                    std::string str_output = "Error: invalid lattice type in search_catalog()";
-                    printf("%s", str_output.c_str());
-                    throw std::exception();
+                    if ((curr_NN >= void_threshold) && (new_NN < void_threshold)) { 
+                        rate = void_gb_diss_barrier; 
+                    }  
+                    else if ((lattice == 0) || (lattice == 1)) {
+                        if (LR_idx == 1) {rate = regionrates_111_L[(reg_id-1)][idx];}
+                        else if (LR_idx == 0) {rate = regionrates_111_R[(reg_id-1)][idx];}                        
+                    }
+                    
+                    else if ((lattice == 2) || (lattice == 3)) {
+                        if (LR_idx == 1) {rate = regionrates_100_L[(reg_id-1)][idx];}
+                        else if (LR_idx == 0) {rate = regionrates_100_R[(reg_id-1)][idx];}
+                        else if (LR_idx == -1) {rate = ratecatalog_100[0][idx];}
+                    }
+                    else {
+                        std::string str_output = "Error: invalid lattice type in search_catalog()";
+                        printf("%s", str_output.c_str());
+                        throw std::exception();
+                    }
                 }
             }            
             else {
@@ -937,39 +1449,59 @@ class Lattice {
                     if (shift[2] == 1) {LR_idx = 0;}
                     else {LR_idx = 1;}
                 }
-                // in case of no pre-defined region, use bulk rate constants
-                if ((lattice == 1) || (lattice == 0)) {rate = ratecatalog_111[LR_idx][idx];}
-                else if ((lattice == 2) || (lattice == 3)) {rate = ratecatalog_100[0][idx];}
+
+                if ((curr_NN >= void_threshold) && (new_NN < void_threshold)) { rate = void_barrier; }  
+                else {
+                    // in case of no pre-defined region, use bulk rate constants
+                    if ((lattice == 1) || (lattice == 0)) {rate = ratecatalog_111[LR_idx][idx];}
+                    else if ((lattice == 2) || (lattice == 3)) {rate = ratecatalog_100[0][idx];}
+                }
             }
 
             return rate;
         }
 
-        /*
-        method for obtaining number of vacancies in nearest neighbor shell of vacancy
+        /**
+        * @brief Method for obtaining the number of vacancies in the nearest neighbor shell of a vacancy.
+        *
+        * @param vac Pointer to an array representing the vacancy coordinates.
+        * @param lattice The lattice type.
+        * @return The number of vacancies in the nearest neighbor shell.
         */
         int get_NN_count(int* vac, int lattice) {
             int count = 0;
-
+            
+            
             // moving vacancy from bc site to vertex site
             if (lattice == 1) {
                 for (int i=0; i<(int)diag_directions.size(); i++) {
-                    count += vacancies(0, (((vac[1] + diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((vac[2] + diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((vac[3] + diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]));
+                    if ((vac[3] == 0) && (diag_directions[i][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                    else if ((vac[3] == (int)(lattice_dim[2]-1)) && (diag_directions[i][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                    else { count += vacancies(0, (((vac[1] + diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((vac[2] + diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((vac[3] + diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])); }
+                    
                 }
             }
 
             // moving vacancy from vertex site to bc site     
             else if (lattice == 0) {
                 for (int i=0; i<(int)diag_directions.size(); i++) {
-                    count += vacancies(1, (((vac[1] - diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((vac[2] - diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((vac[3] - diag_directions[i][2])% lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]));
+                    if ((vac[3] == 0) && (diag_directions[i][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                    else if ((vac[3] == (int)(lattice_dim[2]-1)) && (diag_directions[i][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                    else { count += vacancies(1, (((vac[1] - diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((vac[2] - diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((vac[3] - diag_directions[i][2])% lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])); }
+                    
                 }
             }
             
             return count;
         }
 
-        /*
-        deprecated method corresponding to the case of only one rate constant
+        /**
+        * @brief Deprecated method corresponding to the case of only one rate constant.
+        *
+        * @param coord Pointer to an array representing the coordinates.
+        * @param shift Pointer to an array representing the shift in coordinates.
+        * @param lattice The lattice type.
+        * @return The rate constant for the move.
         */
         double search_catalog_oneconst(int* coord, int* shift, int lattice) {
             int LR_idx;
@@ -1033,8 +1565,14 @@ class Lattice {
             return rate;
         }
 
-        /*
-        deprecated method for finding energy corresponding to NN-encoding and move type
+        /**
+        * @brief Deprecated method for finding energy corresponding to NN-encoding and move type.
+        *
+        * @param encoding The encoding value.
+        * @param coord Pointer to an array representing the coordinates.
+        * @param shift Pointer to an array representing the shift in coordinates.
+        * @param lattice The lattice type.
+        * @return The energy corresponding to the move.
         */
         double new_search_catalog(int encoding, int* coord, int* shift, int lattice) {
             int LR_idx; // index corresponding to direction of movement in lattice (left/right)
@@ -1105,8 +1643,21 @@ class Lattice {
             return energy;
         }
 
-        /*
-        generating encoding corresponding to configuration of nearest neighbors for a vacancy
+        /**
+        * @brief Computes the encoding corresponding to the configuration of nearest neighbors for a vacancy.
+        * 
+        * This function calculates a unique encoding by summing the contributions of neighboring sites
+        * based on their occupancy, using exponential weights. The encoding depends on whether the vacancy
+        * is in a boundary condition (BC) site or a vertex site.
+        * 
+        * @param vac Pointer to an array of size 3 representing the coordinates of the vacancy.
+        * @param lattice Integer indicating the type of lattice site:
+        *               - 3: Vacancy moves from BC site to BC site
+        *               - 2: Vacancy moves from vertex site to vertex site
+        *               - 1: Vacancy moves from BC site to vertex site
+        *               - 0: Vacancy moves from vertex site to BC site
+        * 
+        * @return Integer encoding of the local configuration around the vacancy.
         */
         int new_get_neighbors(int* vac, int lattice) {
             int sum = 0;
@@ -1149,8 +1700,13 @@ class Lattice {
             return sum;
         }
  
-        /*
-        updating the positions of atoms on lattice according to selected move
+        /**
+        * @brief Updates the positions of atoms on the lattice according to the selected move.
+        * 
+        * This function updates the lattice by moving vacancies according to predefined move types.
+        * It modifies the lattice occupancy, updates vacancy positions, and manages boundary conditions.
+        * 
+        * @param idx Index of the selected move in the list of possible moves.
         */
         void new_update_lattice(int idx) {
             int* new_loc = moves_coords[idx]; // new location of vacancy
@@ -1267,8 +1823,15 @@ class Lattice {
             
         }
 
-        /*
-        calculating time elapsed for a move
+        /**
+        * @brief Calculates the time elapsed for a move in the KMC simulation.
+        * 
+        * This function generates a random number between 0 and 1 and computes the 
+        * time elapsed for a move based on the cumulative sum of move rates.
+        * The time is determined using the exponential distribution formula.
+        * 
+        * @param cumsum A vector representing the cumulative sum of move rates.
+        * @return The calculated time elapsed for the move.
         */
         double new_random_times(std::vector<double> cumsum) {
             // creating a random double between 0 and 1
@@ -1282,9 +1845,16 @@ class Lattice {
             return time;
         }
 
-        /*
-        selecting random move in vector of moves, with selection probability proportional
-        to rate constant corresponding to move
+        /**
+        * @brief Selects a random move index from a cumulative sum vector, 
+        *        with probability proportional to the corresponding rate constant.
+        * 
+        * This function generates a random number and uses it to access an index 
+        * in the cumulative sum vector (`cumsum`), ensuring that selection probability 
+        * is proportional to the value at that position.
+        * 
+        * @param cumsum A vector of cumulative sum values representing move probabilities.
+        * @return The index of the selected move.
         */
         int get_idx(std::vector<double> cumsum) {
             // creating a random double between 0 and 1
@@ -1300,9 +1870,25 @@ class Lattice {
             return min_idx;
         }
 
-        /*
-        wrapper method containing initialization of all varables in system, timer, and 
-        calls to update state of system and list of moves
+
+        /**
+        * @brief Runs a Kinetic Monte Carlo (KMC) simulation for a given time limit.
+        * 
+        * This function initializes the necessary system variables, updates the state of 
+        * the system at each step, records vacancy configurations, and logs simulation progress.
+        * It executes a loop until the simulated time exceeds `time_lim`.
+        * 
+        * @param time_lim The maximum simulation time.
+        * @param start The start time of the simulation (real clock time).
+        * @param folder The output folder for saving simulation results.
+        * @param iteration The current iteration number of the simulation.
+        * @param last_tick The last recorded tick of the simulation.
+        * @param last_time The last recorded simulation time.
+        * @return A tuple containing:
+        *         - A trajectory of all vacancy configurations.
+        *         - A vector with move counts of different move types.
+        *         - A vector with time elapsed for different move types.
+        *         - A vector of all recorded time steps.
         */
         std::tuple< std::vector< std::vector< std::vector<int> > >, std::vector<int>, 
         std::vector<double>, std::vector<double> > new_kmc_iterator(double time_lim, std::chrono::system_clock::time_point start, std::string folder, int iteration, int last_tick, double last_time) {
@@ -1332,7 +1918,7 @@ class Lattice {
             all_vacancies.push_back(only_vacancies);
             std::cout << "all_vacancies done \n"; 
 
-            int move_ticks = 0;
+            int move_ticks = last_tick;
 
             // output files 
             std::ofstream out_file;
@@ -1346,15 +1932,14 @@ class Lattice {
             int idx = 0;
 
             while (t < time_lim) {
-                /*
-                std::cout << "rate_cumsum.size: " << rate_cumsum.size() << "\n";
-                std::cout << "rate_cumsum[-1]: " << rate_cumsum[(rate_cumsum.size()-1)] << "\n";
+                //std::cout << "move_ticks: " << move_ticks << "\n";
+                //std::cout << "rate_cumsum.size: " << rate_cumsum.size() << "\n";
+                //std::cout << "rate_cumsum[-1]: " << rate_cumsum[(rate_cumsum.size()-1)] << "\n";
                 //print_1Dvector(rate_cumsum);
-                std::cout << "onevac_vec: \n";
-                print_2Dvector(onevac_vec);
-                
-                if (move_ticks == 0) {
-                    
+                //std::cout << "onevac_vec: \n";
+                //print_2Dvector(onevac_vec);
+                /*
+                if (move_ticks >= 0) {
                     std::cout << "onevac_vec: \n";
                     print_2Dvector(onevac_vec);
                     ss << folder << "/onevoid_1NN_test.txt";
@@ -1370,10 +1955,10 @@ class Lattice {
                     exit(0);
                 }
                 */
-
-                // writing output files every 100000 timesteps
-                if (move_ticks % 100000 == 0) {
-                    //std::cout << "move_ticks: " << move_ticks << "\n";
+                
+                // writing output files every 100000 timesteps 
+                if (move_ticks % 20000 == 0) {
+                    std::cout << "move_ticks: " << move_ticks << "\n";
 
                     only_vacancies = vacancies.nonzero();
                     ss << folder << "/vacs/vacancies_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt";
@@ -1401,8 +1986,7 @@ class Lattice {
                         ss.clear();
                         out_file.close();
                     }
-                    
-                }
+                } 
 
                 end = std::chrono::system_clock::now(); 
                 elapsed_seconds = end-start; 
@@ -1415,16 +1999,22 @@ class Lattice {
                 timesteps.push_back(t);
                 move_ticks ++; 
                 old_time = t; 
-                
+
+                /*
                 // terminating simulation after real-time limit reached
-                if (elapsed_seconds.count() >= 604800) {
+                if (elapsed_seconds.count() >= 900) {
                     only_vacancies = vacancies.nonzero();
                     all_vacancies.push_back(only_vacancies);
-                    t = time_lim + 1;
                     std::cout << "t: " << t << "\n";
+                    std::cout << "move_counts: " << "\n";
                     print_1Dvector(move_counts);
+                    std::cout << "time_count: " << "\n";
+                    print_1Dvector(time_count);
+                    t = time_lim + 1;
                     break;
+                    exit(0);
                 }
+                */
                  
                 new_get_actions();
                 
@@ -1446,11 +2036,18 @@ class Lattice {
 
 /*---------------------------------------------------------------------------*/
 
-/*
-creating entries in rate catalog corresponding to all configurations of
-"len" sites with m vacancies, corresponding to all the binary strings of 
-length "len" with m zeros.
-*/
+/**
+ * @brief Generates all binary configurations of length `len` with `m` zeros.
+ * 
+ * This function creates entries in a rate catalog corresponding to all possible 
+ * binary strings of length `len` containing exactly `m` zeros. The function 
+ * computes all such combinations and stores their integer representations in a vector.
+ * 
+ * @param len The length of the binary string.
+ * @param m The number of zeros in the binary string.
+ * @param size The base value used for exponentiation.
+ * @return A vector containing integer representations of all valid binary configurations.
+ */
 std::vector<int> bin_m_zeros(int len, int m, int size) {
     int num_combos = NCR(len, m);
     std::vector<int> vec(num_combos);
@@ -1476,9 +2073,17 @@ std::vector<int> bin_m_zeros(int len, int m, int size) {
     return vec;
 }
 
-/*
-converting a inputted base-m string (type std::string) to an int
-*/
+/**
+ * @brief Converts a base-m encoded string to an integer.
+ * 
+ * This function takes a string representation of a number in base-m 
+ * and converts it to an integer. Each character in the string represents 
+ * a digit in base-m, and the function calculates its decimal equivalent.
+ * 
+ * @param config The input string representing the number in base-m.
+ * @param size The base value (m) used for conversion.
+ * @return The integer equivalent of the base-m number.
+ */
 int base_m_to_int(std::string config, int size) {
 
     int result = 0;
@@ -1494,10 +2099,24 @@ int base_m_to_int(std::string config, int size) {
     return result;
 }
 
-/*
-reads in file corresponding to rate catalog and creates catalog of rates with allowed
-moves, catalog of allowed configurations for moves, and rate catalog corresponding to regions
-*/
+/**
+ * @brief Reads a rate catalog file and creates data structures for allowed moves, configurations, and region-specific rates.
+ * 
+ * This function parses a file containing rate catalog information, extracting configurations, 
+ * associated energies, and region-based rate assignments. The output consists of:
+ * - A catalog of allowed configurations.
+ * - A catalog of configuration energies.
+ * - A region-specific rate catalog.
+ * - The total number of regions processed.
+ * 
+ * @param catalogfile The file path to the rate catalog.
+ * @param atype_list A vector containing atom type identifiers.
+ * @return A tuple containing:
+ *         - A 2D vector of integers representing allowed configurations.
+ *         - A 3D vector of doubles representing energies for each configuration.
+ *         - A 4D vector of doubles representing region-specific energy configurations.
+ *         - An integer indicating the number of regions.
+ */
 std::tuple< std::vector< std::vector<int> >, 
 std::vector< std::vector< std::vector<double> > >, 
 std::vector< std::vector< std::vector< std::vector<double> > > > ,
@@ -1755,16 +2374,27 @@ updated_create_ratecatalog(std::string catalogfile, std::vector<int> atype_list)
     return tuple_out;
 }
 
-
-/*
-creating region objects corresponding to input file
-*/
+/**
+ * @brief Creates a Region object based on the provided input information.
+ * 
+ * This function parses the given input vector to extract details about a region,
+ * including its type, bias direction, position parameters, rates, and optional
+ * properties such as random distribution or interface properties.
+ * 
+ * @param info A vector of strings containing region details from the input file.
+ * @return A pointer to the newly created Region object.
+ */
 Region* add_region(std::vector<std::string> info) {
     std::cout << "adding region \n";
     int id = std::stoi(tokenizer(info[0], ":")[0]); // region id number
     std::vector< std::vector<int> > params = vect_create_2D(2,3);
-    std::string reg_type = info[1]; // region type
-    std::string bias = info[2]; //bias direction of region
+    std::vector<double> rates(2);
+    std::vector<double> distribution(4,1);
+    std::vector<int> interface(4);
+    std::string reg_type = info.at(1); // region type
+    std::string bias = info.at(2); //bias direction of region
+    bool random = false; 
+    double interface_terrace_rate = 0;
 
     if (info[1] == "GB") {
         // case of grain boundary region
@@ -1787,15 +2417,71 @@ Region* add_region(std::vector<std::string> info) {
 
         params[0][2] = std::stoi(tokenizer(info[7], ":")[1]);
         params[1][2] = std::stoi(tokenizer(info[8], ":")[1]);
-    }
         
-    Region* new_region = new Region(id, reg_type, bias, params);
+        if (info.at(9) == "rate_neg") {
+            rates[0] = std::stod(info.at(10));
+            if (info.at(11) == "rate_pos") {
+                rates[1] = std::stod(info.at(12));
+            }
+        }
+        else if (info.at(9) == "rate_pos") {
+            rates[1] = std::stod(info.at(10));
+            if (info.at(11) == "rate_neg") {
+                rates[0] = std::stod(info.at(12));
+            }
+        }
+    }
+    std::cout << "post block \n";
+
+    if (info.size() > 13) { 
+        if (info.at(13) == "RANDOM") {
+            std::cout << "RANDOM\n";
+            distribution[0] = std::stod(info.at(14));
+            distribution[1] = std::stod(info.at(15));
+            distribution[2] = std::stod(info.at(16));
+            distribution[3] = std::stod(info.at(17));
+            
+            random = true;
+        } 
+        else if (info.at(13) == "INTERFACE") {
+            std::cout << "INTERFACE\n";
+            interface[0] = 1;
+            interface[1] = std::stod(info.at(14));
+            interface[2] = std::stod(info.at(15));
+            interface[3] = std::stod(info.at(16));
+            interface_terrace_rate = std::stod(info.at(17));
+        }
+
+        
+    } 
+    std::cout << "pre region \n";
+
+    Region* new_region = new Region(id, reg_type, bias, params, distribution, random, rates, interface, interface_terrace_rate);
+
+    // generating random barriers according to bounds if RANDOM tag
+    //included in region description
+    if (info.size() > 9) { 
+        if (info.at(9) == "RANDOM") {
+            //new_region->random_blocking();
+            new_region->random_barrier_assigner(rates);
+        }
+    }
+
     return new_region;
 }
 
-/*
-populating region_sites FourDArr with values corresponding to custom regions input file
-*/
+/**
+ * @brief Populates the `region_sites` FourDArr with values corresponding to a custom regions input file.
+ *
+ * This function reads a custom region file and assigns region IDs to the appropriate locations 
+ * within the `FourDArr` structure. It ensures that assigned sites do not exceed the simulation cell bounds.
+ *
+ * @param sites Pointer to the `FourDArr` structure where region IDs will be assigned.
+ * @param regions A vector of pointers to `Region` objects representing different regions.
+ * @param custom_reg_idx Index of the custom region to be processed.
+ * @param dim A vector containing the dimensions [x, y, z] of the region space.
+ * @param infile_name The name of the input file containing custom region definitions.
+ */
 void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, int custom_reg_idx, std::vector<int> dim, std::string infile_name) {
     std::cout << "drawing regions \n";
     Region* region;
@@ -1837,9 +2523,17 @@ void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, int cust
     }
 }
 
-/*
-populating region_sites FourDArr with values corresponding to input file
-*/
+/**
+ * @brief Populates the `region_sites` FourDArr with values corresponding to the input file.
+ *
+ * This function iterates over region objects and assigns region IDs to the appropriate locations 
+ * within the `FourDArr` structure based on the type of region. It supports both grain boundary (GB) 
+ * and block (rectangular prism) regions.
+ *
+ * @param sites Pointer to the `FourDArr` structure where region IDs will be assigned.
+ * @param regions A vector of pointers to `Region` objects that define different regions.
+ * @param dim A vector containing the dimensions [x, y, z] of the region space.
+ */
 void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int> dim ) {
     Region* region;
     std::vector<int> lo(3);
@@ -1856,6 +2550,7 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
     for (int i=0; i<(int)regions.size(); i++) {
         
         region = regions[i];
+        std::cout << "region number: " << i << "\n";
 
         if (region->type == "GB") {
             // case of grain boundary region
@@ -1891,6 +2586,9 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
             hi[0] = ceil(region->upperbound[0]);
             hi[1] = ceil(region->upperbound[1]);
             hi[2] = ceil(region->upperbound[2]);
+            
+            std::cout << "lowerbound[0]: " << region->lowerbound[0] << " lowerbound[1]: " << region->lowerbound[1] << "lowerbound[2]: " << region->lowerbound[2] << "\n";
+            std::cout << "upperbound[0]: " << region->upperbound[0] << " upperbound[1]: " << region->upperbound[1] << "upperbound[2]: " << region->upperbound[2] << "\n";
 
             start = {0, lo[0], lo[1], lo[2]}; end = {0, hi[0], hi[1], hi[2]};
             coords = FourD_idxs(start, end);
@@ -1901,11 +2599,22 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
             sites->assign_idxs(coords, values);
         }
     }
+    //exit(0);
 }
 
-/*
-wrapper function reading input file and creating region objects / populating region_sites FourDArr
-*/
+/**
+ * @brief Initializes regions by reading input file data and populating a 4D array.
+ *
+ * This function processes an input file to create region objects and populate a `FourDArr` structure. 
+ * It first initializes a 4D array with zeros, then reads the input file to define regions, adding extra 
+ * regions if necessary. The function also assigns region IDs to appropriate locations in the array.
+ *
+ * @param lines A vector of strings representing lines from an input file.
+ * @param dims A vector containing the dimensions of the region space [x, y, z].
+ * @param num_regions The expected number of regions to initialize.
+ * @param region_infile Path to an optional file specifying custom region definitions.
+ * @return A tuple containing the updated read index, a vector of region pointers, and a pointer to a FourDArr structure.
+ */
 std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std::string> lines, std::vector<int> dims, int num_regions, std::string region_infile) {
 
     int read_idx = 0;
@@ -1928,13 +2637,22 @@ std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std:
     }
 
     // reading input file and initializing regions
+    int region_idx = 0;
     while (curr_line.find("regions end") == std::string::npos) {
         region_info = tokenizer(curr_line, " ");
+        
+        std::cout << "region_info\n";
+        print_1Dvector(region_info);
+        
         Region* region = add_region(region_info);
         regions.push_back(region);
+        
         read_idx ++;
         curr_line = lines[read_idx];
+        region_idx ++;
+        std::cout << "End of loop\n";
     }
+
     std::string arbitrary_reigon;
     if (num_regions > (int)regions.size()) {
         std::cout << "adding regions\n";
@@ -1975,20 +2693,76 @@ std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std:
     return tuple_out;
 }
 
-/*
-wrapper function reading input file and creating region objects / populating region_sites FourDArr
-*/
+/**
+ * @brief Reads miscellaneous rates from input lines and extracts relevant rate values.
+ *
+ * This function parses an input file's lines to extract rate values associated with specific labels. 
+ * It processes numeric values and maps them to predefined rate indices.
+ *
+ * @param read_idx The starting index in the lines vector from where reading begins.
+ * @param lines A vector of strings representing lines from an input file.
+ * @return A tuple containing the updated read index and a vector of extracted rates.
+ */
+std::tuple< int, std::vector<double> > read_misc_rates(int read_idx, std::vector<std::string> lines) {
+    
+    std::cout << "read_misc_rates() \n";
+    std::vector<double> rates(7);
+    std::vector<std::string> rate_info;
+    bool idx_found = false;
+    int rate_idx = 0; 
+    std::string curr_line = lines[read_idx];
 
+    while (curr_line.find("rates end") == std::string::npos) {
+        
+        rate_info = tokenizer(lines[read_idx], " ");
 
-/*
-wrapper function for:
-- reading input files
-- populating vacancy, bc_site, vertex_site, and region_site FourDArr data structures
-corresponding to initial configuration of simulation
--  creating region objects 
-- creating rate catalog for bulk & pre-defined regions
-*/
-Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, double vertex_rate, double edge_rate, std::vector<std::vector<double>> reg_rates) {
+        for (int i=0; i<(int)rate_info.size(); i++) {
+
+            if ((is_numeric_or_scinotation(rate_info[i])) && (idx_found)) {
+                rates[rate_idx] = std::stod(rate_info[i]);
+                idx_found = false;
+            }
+            else if ((!is_numeric_or_scinotation(rate_info[i])) && (!idx_found)) {
+                
+                if (rate_info[i] == "diag") { rate_idx = 0; }
+                else if (rate_info[i] == "lateral") { rate_idx = 1; }
+                else if (rate_info[i] == "void_threshold") { rate_idx = 2; }
+                else if (rate_info[i] == "void_rate") { rate_idx = 3; }
+                else if (rate_info[i] == "terrace_rate_111") { rate_idx = 4; }
+                else if (rate_info[i] == "terrace_rate_100") { rate_idx = 5; }
+                else if (rate_info[i] == "void_gb_diss_rate") { rate_idx = 6; }
+                idx_found = true;
+            }
+            else {
+                std::cout << "ERROR: mismatch in order of rates and labels \n" << "\n";
+                exit(0);
+            }
+        }  
+
+        read_idx ++;
+        curr_line = lines[read_idx];     
+    }
+
+    std::tuple< int, std::vector<double> > tuple_out(read_idx, rates);
+    return tuple_out;
+}
+
+/**
+ * @brief Populates a Lattice object by reading input files and initializing necessary data structures.
+ *
+ * This function performs the following tasks:
+ * - Reads the input file to extract lattice dimensions, atomic types, and other necessary information.
+ * - Parses and initializes vacancy, boundary condition sites, vertex sites, and region site FourDArr data structures.
+ * - Reads and processes region-related data, initializing region objects.
+ * - Reads and assigns rate catalogs for bulk and predefined regions.
+ * - Initializes a Lattice object with extracted data and assigns region-specific rates.
+ *
+ * @param[in] infile_name Path to the input file containing lattice configuration.
+ * @param[in] catalogfile_name Path to the rate catalog file for bulk and predefined regions.
+ * @param[in] region_infile Path to the region file containing region-specific information.
+ * @return A pointer to the populated Lattice object.
+ */
+Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile) {
     std::fstream in_file;
     in_file.open(infile_name);
     std::vector<std::string> lines;
@@ -2004,6 +2778,7 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         in_file.close();
     }
 
+    std::cout << "file read!\n";
     // parsing first line to grab dimensions of lattice ###
     std::string dims = lines[read_idx]; //getting dimension line
     read_idx ++;
@@ -2015,6 +2790,8 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         dims_int[i] = std::stoi(dims_str[i+1]); 
 
     }
+
+    std::cout << "dims int\n";
     //parsing through tokens except line label (this is why i=1)    
 
     // reading in geo type ###
@@ -2069,14 +2846,31 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         regions_tuple = init_regions(slice_1Dvec(lines, read_idx, (int)lines.size()), dims_int, num_regions, region_infile); 
         std::cout << "region!\n";
         incriment = std::get<0>(regions_tuple); temp_regions = std::get<1>(regions_tuple); temp_region_sites = std::get<2>(regions_tuple);
+        read_idx += incriment;  
     }
     else {
         printf("ERROR: regions section mis-formatted in geometry file (check for extra newlines)");
         throw std::exception();
     }
-
-    read_idx = read_idx + incriment;
+     
+    //read_idx = read_idx + incriment;
     read_idx ++;
+
+    // getting values of miscellaneous rates
+    std::cout << "pre read_misc_rates()\n";
+    std::cout << "lines[read_idx]: " << lines[read_idx] << "\n";
+    std::tuple< int, std::vector<double> > misc_rates_tuple;
+    std::string rates_substring = "rates begin";
+    std::vector<double> misc_rates;
+
+    if (lines[read_idx].find(rates_substring) != std::string::npos) {
+        read_idx ++;     
+        misc_rates_tuple = read_misc_rates(read_idx, lines);
+        read_idx = std::get<0>(misc_rates_tuple); misc_rates = std::get<1>(misc_rates_tuple); 
+    }
+    read_idx ++;     
+
+    std::cout << "lines[read_idx]: " << lines[read_idx] << "\n"; 
 
     // reading in atoms, along with their type and coordinate //
     std::tuple<std::string, double, double, double, int> tuple_out;
@@ -2192,11 +2986,11 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         temp_vec = bin_m_zeros(8, i, (int)a_type_values.size());
         diag_configs.insert(diag_configs.end(), temp_vec.begin(), temp_vec.end() );
         if (i==0) {
-            temp_vec_2D = vect_create_2D_float(2, NCR(8,i), vertex_rate);
+            temp_vec_2D = vect_create_2D_float(2, NCR(8,i), misc_rates[0]);
             diag_E = temp_vec_2D;
         }
         else {
-            temp_vec_2D = vect_create_2D_float(2, NCR(8,i), vertex_rate);
+            temp_vec_2D = vect_create_2D_float(2, NCR(8,i), misc_rates[0]);
             diag_E[0].insert(diag_E[0].end(), temp_vec_2D[0].begin(), temp_vec_2D[0].end());
             diag_E[1].insert(diag_E[1].end(), temp_vec_2D[1].begin(), temp_vec_2D[1].end());
         }
@@ -2215,11 +3009,11 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         temp_vec = bin_m_zeros(14, i, (int)a_type_values.size());
         lateral_configs.insert(lateral_configs.end(), temp_vec.begin(), temp_vec.end());
         if (i==0) {
-            temp_vec_2D = vect_create_2D_float(2, NCR(14,i), edge_rate);
+            temp_vec_2D = vect_create_2D_float(2, NCR(14,i),  misc_rates[1]);
             lateral_E = temp_vec_2D;
         }
         else {
-            temp_vec_2D = vect_create_2D_float(2, NCR(14,i), edge_rate);
+            temp_vec_2D = vect_create_2D_float(2, NCR(14,i),  misc_rates[1]);
             lateral_E[0].insert(lateral_E[0].end(), temp_vec_2D[0].begin(), temp_vec_2D[0].end());
             lateral_E[1].insert(lateral_E[1].end(), temp_vec_2D[1].begin(), temp_vec_2D[1].end());
         }
@@ -2264,9 +3058,8 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
 
     // intialzing lattice, basis vectors, vacancies, mobile ions, and fixed //
     // atoms based upon dimensions //
-    std::cout << "reg_num: " << reg_num << "\n";
     Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, num_regions, temp_regions);
-    //print_2Dvector(temp_region_sites->nonzero());
+
     for (size_t i=0; i<2; i++) {
         for (size_t j=0; j<(size_t)dims_int[0]; j++) {
             for (size_t k=0; k<(size_t)dims_int[1]; k++) {
@@ -2285,6 +3078,9 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         }
     } 
 
+    // assigning rates to region-specific rate catalogs 
+    new_lattice->assign_region_rates_wrapper(temp_regions, misc_rates);
+
     new_lattice->configs_111 = configs_111;
     new_lattice->configs_100 = configs_100;
 
@@ -2300,38 +3096,9 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     cols = new_lattice->ratecatalog_100.cols();
     for (size_t i=0; i<rows; i++) {
         for (size_t j=0; j<cols; j++) {
-            new_lattice->ratecatalog_100(i,j) = edge_rate;
+            new_lattice->ratecatalog_100(i,j) = misc_rates[1];
         }
     }
-    std::cout << "ratecatalog_100 \n";
-    new_lattice->ratecatalog_100.print();
-
-    rows = new_lattice->regionrates_100_L.rows();
-    cols = new_lattice->regionrates_100_L.cols();
-    for (size_t i=0; i<rows; i++) {
-        for (size_t j=0; j<cols; j++) {
-            new_lattice->regionrates_100_L(i,j) = edge_rate;
-            new_lattice->regionrates_100_R(i,j) = edge_rate;
-        }
-    }
-
-    std::cout << reg_num << "\n";
-
-    rows = new_lattice->regionrates_111_L.rows();
-    cols = new_lattice->regionrates_111_L.cols();
-    for (size_t i=0; i<rows; i++) {
-        std::cout << i << "\n";
-        std::cout << reg_rates[i][0] << "\n";
-        std::cout << reg_rates[i][1] << "\n";
-        for (size_t j=0; j<cols; j++) {
-            new_lattice->regionrates_111_L(i,j) = reg_rates[i][0];
-            new_lattice->regionrates_111_R(i,j) = reg_rates[i][1];
-        }
-    }
-
-    std::cout << "edge_rate: " << edge_rate << "\n";
-    new_lattice->probs = create_vec_1D_float(vacancies_count);
-    new_lattice->rates = create_vec_1D_float(vacancies_count);
 
     for (int i=0; i<(int)a_type_values.size(); i++) {new_lattice->a_types[a_type_keys[i]] = a_type_values[i];}
 
@@ -2345,8 +3112,28 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         }
     }
 
-    new_lattice->void_threshold = 2;
-    new_lattice->void_barrier = 7.98587e8;
+    new_lattice->void_threshold = misc_rates[2];
+    new_lattice->void_barrier = misc_rates[3];
+    new_lattice->terrace_barrier_111 = misc_rates[4];
+    new_lattice->terrace_barrier_100 = misc_rates[5];
+    new_lattice->void_gb_diss_barrier = misc_rates[6];
+
+
+    /*
+    new_lattice->void_threshold = 3;
+    new_lattice->void_barrier = 6.84e8; //3.04e6; //6.84e8; //2.88e3; // 5.06e7; //2761667.608;
+    
+    if (new_lattice->void_barrier == 6.84e8) {
+        new_lattice->terrace_barrier_111 = 1.43e9; //1.43e9; //7.13e6; //1.67e9;
+        new_lattice->terrace_barrier_100 = 1.43e9; //1.43e9; //7.13e6; //1.67e9;
+    }
+    else {
+        new_lattice->terrace_barrier_111 = 1.67e9; //1.43e9; //7.13e6; //1.67e9;
+        new_lattice->terrace_barrier_100 = 7.13e6; //1.43e9; //7.13e6; //1.67e9;
+    }
+    
+    new_lattice->void_gb_diss_barrier = 6.84e8; //1.43e9; //7.13e6; //1.67e9;
+    */
 
     delete temp_111_catalog;
     delete temp_100_catalog;
@@ -2356,7 +3143,6 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     delete temp_bc_sites;
 
     new_lattice->rate_cumsum.resize(14*nonzero_vacs.size());
-
 
     return new_lattice;
 }

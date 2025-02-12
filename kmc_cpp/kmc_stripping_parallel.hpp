@@ -1638,18 +1638,102 @@ class Lattice {
                     // switching occupancy for old and new site in lattice array // 
 
                     if (moves_lattice(idx,0) == 3) {
+                        if (vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) != 1) {
+                            std::cout << "rank: " << rank << " move_ticks: " << move_ticks << "ERROR: par_proc send identifying wrong site with vacancies_pos or moves_coords or moves_vacs in parallel move etc \n";
+                            std::cout << "i_old: 1" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "vacancies_pos  i: " << vacancies_pos(vacs_idx, 0) << " j: " << vacancies_pos(vacs_idx, 1) << " k: " << vacancies_pos(vacs_idx, 2) << " l: " << vacancies_pos(vacs_idx, 3) << "\n";
+                            
+                            Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                            std::cout << "rank: " << rank << " vac_nonzero: \n";
+                            only_vacancies.print();
+                            std::cout << "rank: " << rank << " vacancies_pos: \n";
+                            vacancies_pos.print();
+
+                            Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                            Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                            std::cout << "rank: " << rank << " unequal_elems_mat1: \n";
+                            unequal_elems_mat1.print();
+                            std::cout << "rank: " << rank << " unequal_elems_mat2: \n";
+                            unequal_elems_mat2.print();
+                            
+                            exit(0);
+                        }
                         bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 1;
                         vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 0;
                     }
                     else if (moves_lattice(idx,0) == 2) {
+                        if (vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) != 1) {
+                            std::cout << "rank: " << rank << " move_ticks: " << move_ticks << "ERROR: par_proc identifying wrong site with vacancies_pos or moves_coords or moves_vacs parallel move etc \n";
+                            std::cout << "i_old: 0" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "vacancies_pos  i: " << vacancies_pos(vacs_idx, 0) << " j: " << vacancies_pos(vacs_idx, 1) << " k: " << vacancies_pos(vacs_idx, 2) << " l: " << vacancies_pos(vacs_idx, 3) << "\n";
+                            
+                            Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                            std::cout << "rank: " << rank << " vac_nonzero: \n";
+                            only_vacancies.print();
+                            std::cout << "rank: " << rank << " vacancies_pos: \n";
+                            vacancies_pos.print();
+
+                            Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                            Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                            std::cout << "rank: " << rank << " unequal_elems_mat1: \n";
+                            unequal_elems_mat1.print();
+                            std::cout << "rank: " << rank << " unequal_elems_mat2: \n";
+                            unequal_elems_mat2.print();
+                            
+                            exit(0);
+                        }
                         vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 1;
                         vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 0;
                     }
                     else if (moves_lattice(idx,0) == 1) {
+                        if (vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) != 1) {
+                            std::cout << "rank: " << rank << " move_ticks: " << move_ticks << "ERROR: par_proc identifying wrong site with vacancies_pos or moves_coords or moves_vacs parallel move etc \n";
+                            std::cout << "i_old: 1" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "vacancies_pos  i: " << vacancies_pos(vacs_idx, 0) << " j: " << vacancies_pos(vacs_idx, 1) << " k: " << vacancies_pos(vacs_idx, 2) << " l: " << vacancies_pos(vacs_idx, 3) << "\n";
+                            
+                            Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                            std::cout << "rank: " << rank << " vac_nonzero: \n";
+                            only_vacancies.print();
+                            std::cout << "rank: " << rank << " vacancies_pos: \n";
+                            vacancies_pos.print();
+
+                            Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                            Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                            std::cout << "rank: " << rank << " unequal_elems_mat1: \n";
+                            unequal_elems_mat1.print();
+                            std::cout << "rank: " << rank << " unequal_elems_mat2: \n";
+                            unequal_elems_mat2.print();
+
+                            exit(0);
+                        }
                         bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 1;
                         vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 0;
                     }
                     else if (moves_lattice(idx,0) == 0) {
+                        if (vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) != 1) {
+                            std::cout << "rank: " << rank << " move_ticks: " << move_ticks << "ERROR: par_proc identifying wrong site with vacancies_pos or moves_coords or moves_vacs parallel move etc \n";
+                            std::cout << "i_old: 0" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "vacancies_pos  i: " << vacancies_pos(vacs_idx, 0) << " j: " << vacancies_pos(vacs_idx, 1) << " k: " << vacancies_pos(vacs_idx, 2) << " l: " << vacancies_pos(vacs_idx, 3) << "\n";
+                                
+                            Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                            std::cout << "rank: " << rank << " vac_nonzero: \n";
+                            only_vacancies.print();
+                            std::cout << "rank: " << rank << " vacancies_pos: \n";
+                            vacancies_pos.print();
+
+                            Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                            Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                            std::cout << "rank: " << rank << " unequal_elems_mat1: \n";
+                            unequal_elems_mat1.print();
+                            std::cout << "rank: " << rank << " unequal_elems_mat2: \n";
+                            unequal_elems_mat2.print();
+
+                            exit(0);
+                        }
                         vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 1;
                         vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 0;
                     }
@@ -1672,6 +1756,7 @@ class Lattice {
                         /*---
                         BC EDGE MOVES
                         ---*/
+
                         int new_site = bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
 
                         // removing atom from lattice ###
@@ -1692,6 +1777,39 @@ class Lattice {
                         /*---
                         BC EDGE MOVES
                         ---*/
+                        
+                        if ( (vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) != 0 ) || 
+                        (bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) != 0 ) ||
+                        (bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) != 1 ) ) {
+                            std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " ERROR: identifying wrong site with vacancies_pos or moves_coords or moves_vacs non-parallel move etc \n";
+
+                            std::cout << "moves_lattice(idx,0): " << moves_lattice(idx,0) << "\n";
+                            std::cout << "vacancies((size_t)1, (size_t)old_loc[1], (size_t)old_loc[2], (size_t)old_loc[3]): " << vacancies((size_t)0, (size_t)old_loc[1], (size_t)old_loc[2], (size_t)old_loc[3]) << "\n";
+                            std::cout << "vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]): " << vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) << "\n";
+                            std::cout << "bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]): " << bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) << "\n";
+                            std::cout << "bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]): " << bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) << "\n";
+                                                        
+                            std::cout << "i_old: 1" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "i_new: 1" << " j_new: " << new_loc[1] << " k_new: " << new_loc[2] << " l_new: " << new_loc[3] << "\n";
+                            std::cout << "vacancies_pos  i: " << vacancies_pos(vacs_idx, 0) << " j: " << vacancies_pos(vacs_idx, 1) << " k: " << vacancies_pos(vacs_idx, 2) << " l: " << vacancies_pos(vacs_idx, 3) << "\n";
+                            
+                            Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                            std::cout << "rank: " << rank << " vac_nonzero: \n";
+                            only_vacancies.print();
+                            std::cout << "rank: " << rank << " vacancies_pos: \n";
+                            vacancies_pos.print();
+                            
+                            Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                            Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                            std::cout << "rank: " << rank << " unequal_elems_mat1: \n";
+                            unequal_elems_mat1.print();
+                            std::cout << "rank: " << rank << " unequal_elems_mat2: \n";
+                            unequal_elems_mat2.print();
+
+                            exit(0);
+                        }
+                        
                         int new_site = bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
                         int old_site = bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
                                     
@@ -1712,6 +1830,39 @@ class Lattice {
                         /*---
                         VERTEX EDGE MOVES
                         ---*/
+
+                        if ((vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) != 0 ) || 
+                        (vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) != 0 ) ||
+                        (vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) != 1 )) {
+                            std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " ERROR: identifying wrong site with vacancies_pos or moves_coords or moves_vacs non-parallel move etc \n";
+                            
+                            std::cout << "moves_lattice(idx,0): " << moves_lattice(idx,0) << "\n";
+                            std::cout << "vacancies((size_t)0, (size_t)old_loc[1], (size_t)old_loc[2], (size_t)old_loc[3]): " << vacancies((size_t)0, (size_t)old_loc[1], (size_t)old_loc[2], (size_t)old_loc[3]) << "\n";
+                            std::cout << "vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]): " << vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) << "\n";
+                            std::cout << "vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]): " << vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) << "\n";
+                            std::cout << "vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]): " << vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) << "\n";
+                            
+                            std::cout << "i_old: 0" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "i_new: 0" << " j_new: " << new_loc[1] << " k_new: " << new_loc[2] << " l_new: " << new_loc[3] << "\n";
+                            std::cout << "vacancies_pos  i: " << vacancies_pos(vacs_idx, 0) << " j: " << vacancies_pos(vacs_idx, 1) << " k: " << vacancies_pos(vacs_idx, 2) << " l: " << vacancies_pos(vacs_idx, 3) << "\n";
+                            
+                            Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                            std::cout << "rank: " << rank << " vac_nonzero: \n";
+                            only_vacancies.print();
+                            std::cout << "rank: " << rank << " vacancies_pos: \n";
+                            vacancies_pos.print();
+
+                            Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                            Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                            std::cout << "rank: " << rank << " unequal_elems_mat1: \n";
+                            unequal_elems_mat1.print();
+                            std::cout << "rank: " << rank << " unequal_elems_mat2: \n";
+                            unequal_elems_mat2.print();
+
+                            exit(0);
+                        }
+
                         int new_site = vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
                         int old_site = vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
                         
@@ -1732,6 +1883,38 @@ class Lattice {
                         /*---
                         BC MOVES
                         ---*/
+                        if ((vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) != 0 ) || 
+                        (bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) != 0 ) ||
+                        (vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) != 1 )) {
+                            std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " ERROR: identifying wrong site with vacancies_pos or moves_coords or moves_vacs non-parallel move etc \n";
+
+                            std::cout << "moves_lattice(idx,0): " << moves_lattice(idx,0) << "\n";
+                            std::cout << "vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]): " << vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) << "\n";
+                            std::cout << "vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]): " << vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) << "\n";
+                            std::cout << "bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]): " << bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) << "\n";
+                            std::cout << "vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]): " << vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) << "\n";
+                            
+                            std::cout << "i_old: 1" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "i_new: 0" << " j_new: " << new_loc[1] << " k_new: " << new_loc[2] << " l_new: " << new_loc[3] << "\n";
+                            std::cout << "vacancies_pos  i: " << vacancies_pos(vacs_idx, 0) << " j: " << vacancies_pos(vacs_idx, 1) << " k: " << vacancies_pos(vacs_idx, 2) << " l: " << vacancies_pos(vacs_idx, 3) << "\n";
+
+                            Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                            std::cout << "rank: " << rank << " vac_nonzero: \n";
+                            only_vacancies.print();
+                            std::cout << "rank: " << rank << " vacancies_pos: \n";
+                            vacancies_pos.print();
+
+                            Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                            Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                            std::cout << "rank: " << rank << " unequal_elems_mat1: \n";
+                            unequal_elems_mat1.print();
+                            std::cout << "rank: " << rank << " unequal_elems_mat2: \n";
+                            unequal_elems_mat2.print();
+
+                            exit(0);
+                        }
+                        
                         int new_site = vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
                         int old_site = bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
 
@@ -1752,6 +1935,39 @@ class Lattice {
                         /*---
                         VERTEX MOVES
                         ---*/
+                        if ((vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) != 0 ) || 
+                        (vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) != 0 ) ||
+                        (bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) != 1 )) {
+                            std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " ERROR: identifying wrong site with vacancies_pos or moves_coords or moves_vacs non-parallel move etc \n";
+
+                            std::cout << "moves_lattice(idx,0): " << moves_lattice(idx,0) << "\n";
+                            std::cout << "vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]): " << vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) << "\n";
+                            std::cout << "vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]): " << vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) << "\n";
+                            std::cout << "vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]): " << vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) << "\n";
+                            std::cout << "bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]): " << bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) << "\n";
+
+                            std::cout << "i_old: 1" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "i_old: 0" << " j_old: " << old_loc[0] << " k_old: " << old_loc[1] << " l_old: " << old_loc[2] << "\n";
+                            std::cout << "i_new: 1" << " j_new: " << new_loc[1] << " k_new: " << new_loc[2] << " l_new: " << new_loc[3] << "\n";
+                            std::cout << "vacancies_pos  i: " << vacancies_pos(vacs_idx, 0) << " j: " << vacancies_pos(vacs_idx, 1) << " k: " << vacancies_pos(vacs_idx, 2) << " l: " << vacancies_pos(vacs_idx, 3) << "\n";
+                            
+                            Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                            std::cout << "rank: " << rank << " vac_nonzero: \n";
+                            only_vacancies.print();
+                            std::cout << "rank: " << rank << " vacancies_pos: \n";
+                            vacancies_pos.print();
+                            
+                            Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                            Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                            std::cout << "rank: " << rank << " unequal_elems_mat1: \n";
+                            unequal_elems_mat1.print();
+                            std::cout << "rank: " << rank << " unequal_elems_mat2: \n";
+                            unequal_elems_mat2.print();
+
+                            exit(0);
+                        }
+
                         // switching occupancy for old and new site in vacancy and mobileion arrays ###
                         int old_site = vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
                         int new_site = bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
@@ -1948,8 +2164,8 @@ class Lattice {
             for (int i=0; i < (int)remove_idxs.size(); i++) {
                 par_move_ticks.erase((ptr3 + (remove_idxs.at(i) - i)));
             }
-            remove_idxs.clear();
 
+            remove_idxs.clear();
             for (int i=0; i < (int)prev_move_type_ticks.size(); i++) {
                 if (move_ticks > (prev_move_type_ticks.at(i) + 1)) {
                     remove_idxs.push_back(i);
@@ -1984,20 +2200,29 @@ class Lattice {
             move = prev_moves.at((prev_moves.size() - 1));
             lattice = prev_lattice.at((prev_lattice.size() - 1));
             vacs_idx  = prev_idxs.at((prev_idxs.size() - 1));
-
-            if (prev_lattice.at((prev_lattice.size()-1)) == 5) {}
+            
+            
+            if (lattice == 5) { std::cout << "rank: " << rank << " lattice: " << lattice << "\n"; }
             else {
                 if (parallel_transfer) {
+
+                    std::cout << "rank: " << rank << " lattice: " << lattice << "\n";
+                    std::cout << "rank: " << rank << " vacs_idx: " << vacs_idx << "\n";
 
                     i1 = old_vac[0];
                     i2 = old_vac[1];
                     i3 = old_vac[2];
                     i4 = old_vac[3];
 
+                    std::cout << "rank: " << rank << " pre reverse vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
+                        << " vacancies_pos(vacs_idx,2): " << vacancies_pos(vacs_idx,2)  << " vacancies_pos(vacs_idx,3): " << vacancies_pos(vacs_idx,3) << "\n";
+
                     vacancies_pos.add_row(vacs_idx, rank);
                     vacancies_pos(vacs_idx,1) = (size_t)old_vac[1];
                     vacancies_pos(vacs_idx,2) = (size_t)old_vac[2];
                     vacancies_pos(vacs_idx,3) = (size_t)old_vac[3];
+
+                    
 
                     // moving vacancy from bc site to bc site 
                     if (lattice == 3) {
@@ -2058,8 +2283,29 @@ class Lattice {
 
                         vacancies_pos(vacs_idx,0) = 0;
                     }
+
+
+                    for (int i=0; i<(int)prev_idxs.size(); i++)  {
+                        if ((vacs_idx <= prev_idxs[i]) && (vacs_idx != -1)) { prev_idxs[i] ++; }
+                    }
+
+                    std::cout << "rank: " << rank << " post reverse reverse vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
+                        << " vacancies_pos(vacs_idx,2): " << vacancies_pos(vacs_idx,2)  << " vacancies_pos(vacs_idx,3): " << vacancies_pos(vacs_idx,3) << "\n";
+
+
+                    std::cout << "rank: " << rank << " new_i1: " << new_vac[0] << " new_i2: " << new_vac[1] << " new_i3: " << new_vac[2] << " new_i4: " << new_vac[3] << "\n";
+                    std::cout << "rank: " << rank << " old_i1: " << old_vac[0] << " old_i2: " << old_vac[1] << " old_i3: " << old_vac[2] << " old_i4: " << old_vac[3] << "\n";
+            
                 }
                 else {
+
+                    std::cout << "rank: " << rank << " lattice: " << lattice << "\n";
+                    std::cout << "rank: " << rank << " vacs_idx: " << vacs_idx << "\n";
+
+                    std::cout << "rank: " << rank << " pre reverse vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
+                        << " vacancies_pos(vacs_idx,2): " << vacancies_pos(vacs_idx,2)  << " vacancies_pos(vacs_idx,3): " << vacancies_pos(vacs_idx,3) << "\n";
+                    std::cout << "rank: " << rank << " new_i1: " << new_vac[0] << " new_i2: " << new_vac[1] << " new_i3: " << new_vac[2] << " new_i4: " << new_vac[3] << "\n";
+                    std::cout << "rank: " << rank << " old_i1: " << old_vac[0] << " old_i2: " << old_vac[1] << " old_i3: " << old_vac[2] << " old_i4: " << old_vac[3] << "\n";
 
                     i1 = old_vac[0];
                     i2 = old_vac[1];
@@ -2137,7 +2383,10 @@ class Lattice {
                     vacancies_pos(vacs_idx,1) = (size_t)old_vac[1];
                     vacancies_pos(vacs_idx,2) = (size_t)old_vac[2];
                     vacancies_pos(vacs_idx,3) = (size_t)old_vac[3];
-                    
+
+                    std::cout << "rank: " << rank << " post reverse reverse vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
+                        << " vacancies_pos(vacs_idx,2): " << vacancies_pos(vacs_idx,2)  << " vacancies_pos(vacs_idx,3): " << vacancies_pos(vacs_idx,3) << "\n";
+
                     
                 }
                 
@@ -2182,6 +2431,9 @@ class Lattice {
             i3 = (par_prev_newlocs.at((par_prev_newlocs.size()-1)).at(2));
             i4 = (par_prev_newlocs.at((par_prev_newlocs.size()-1)).at(3));
 
+            std::cout << "rank: " << rank << " vacs_idx: " << vacs_idx << "\n";
+            std::cout << "rank: " << rank << " vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
+                << " vacancies_pos(vacs_idx,2): " << vacancies_pos(vacs_idx,2)  << " vacancies_pos(vacs_idx,3): " << vacancies_pos(vacs_idx,3) << "\n";
             
             if (i1 == 1) {
                 // moving vacancy from bc site to bc site 
@@ -2197,12 +2449,18 @@ class Lattice {
             vacancies_pos.remove_row(vacs_idx, rank);
             num_of_vacs --;
             
+            for (int i=0; i<(int)prev_idxs.size(); i++)  {
+                if ((vacs_idx <= prev_idxs[i]) && (vacs_idx != -1)) { prev_idxs[i] --; }
+            }
 
             std::vector<int> old_vac(4);
             old_vac[0] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(0));
             old_vac[1] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(1));
             old_vac[2] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(2));
             old_vac[3] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(3));
+
+            std::cout << "rank: " << rank << " paralllel new_i1: " << i1 << " new_i2: " << i2 << " new_i3: " << i3 << " new_i4: " << i4 << "\n";
+            std::cout << "rank: " << rank << " parallel old_i1: " << old_vac[0] << " old_i2: " << old_vac[1] << " old_i3: " << old_vac[2] << " old_i4: " << old_vac[3] << "\n";
 
             par_move_ticks.pop_back();
             par_prev_newlocs.pop_back();
@@ -2256,10 +2514,16 @@ class Lattice {
 
             // keeping track of new location if parallel transfer
             if (parallel_transfer) { 
+                
                 for (int i=0; i<(int)new_vac.size(); i++)  {
                     new_vac[i] = new_loc[i];
                     old_vac[i] = old_loc[i];
                 }
+
+                for (int i=0; i<(int)prev_idxs.size(); i++)  {
+                    if ((vac_idx <= prev_idxs[i]) && (vac_idx != -1)) { prev_idxs[i] --; }
+                }
+
             }
             // entering filler values if null move
             else if (vac_idx == -1) {
@@ -2329,6 +2593,11 @@ class Lattice {
             vac_old[2] = (parallel_buffer[7]);
             vac_old[3] = (parallel_buffer[8]);
 
+
+            for (int i=0; i<(int)par_prev_idx.size(); i++)  {
+                if ((vac_idx <= par_prev_idx[i]) && (vac_idx != -1)) { prev_idxs[i] ++; }
+            }
+
             par_prev_oldlocs.push_back(vac_old);
             par_prev_newlocs.push_back(vac_new);
             par_move_ticks.push_back(move_ticks);
@@ -2361,6 +2630,7 @@ class Lattice {
         void reverse_moves_wrapper() {
 
             for (int i=(prev_move_type.size()-1); i>=0; i--) { 
+                std::cout << "prev_move_type: " << prev_move_type[i] << "\n";
                 if (prev_move_type[i] == 0) reverse_move(false); // reversing in-lattice move with no parallel transfer
                 if (prev_move_type[i] == 1) reverse_move(true); // reversing move with sending parallel transfer
                 if (prev_move_type[i] == 2) reverse_move_parallel(); // reversing move with recieving parallel transfer
@@ -2411,9 +2681,29 @@ class Lattice {
             std::vector<size_t> y_dims = proc_pos_y_neighbors.size_vec;
             
             if (vacancies((size_t)i, (size_t)j, (size_t)k, (size_t)l) == 1) {
-                std::cout << "rank: " << rank << " ERROR: Vacancy overwriting already existing vacancy in interprocessor communication \n";
+                std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " ERROR: Vacancy overwriting already existing vacancy in interprocessor communication \n";
+               
+                Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " unequal_elems_mat1: \n";
+                unequal_elems_mat1.print();
+                std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " unequal_elems_mat2: \n";
+                unequal_elems_mat2.print();
+
+                if ((unequal_elems_mat1.rows() != 0) || (unequal_elems_mat2.rows() != 0)) {
+                    std::cout << "rank: " << rank << " vacancies_pos: \n";
+                    vacancies_pos.print();
+                    std::cout << "rank: " << rank << " only_vacancies: \n";
+                    only_vacancies.print();
+                    exit(0);
+                }
+
                 interboundary_conflict = true;
                 comm_boundary_conflict();
+
+                return true;
             }
             else {
                 /* store previous two moves */
@@ -2421,7 +2711,7 @@ class Lattice {
                 size_t rows = vacancies_pos.rows();
                 size_t cols = vacancies_pos.cols();
                 vacancies_pos.reshape(rows+1, cols, rank);
-                                
+                
                 store_parallel_info(new_loc_buffer, move_ticks, rows);
                 
                 vacancies((size_t)i, (size_t)j, (size_t)k, (size_t)l) = 1;
@@ -2436,6 +2726,8 @@ class Lattice {
                 num_of_vacs ++;
                 prev_move_type.push_back(2);
                 prev_move_type_ticks.push_back(move_ticks);
+
+                return false;
             }
 
             return interboundary_conflict;
@@ -2540,8 +2832,7 @@ class Lattice {
             bool stop_conflict = 0;
             bool interboundary_conflict = false;
 
-            //std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " enter receive_parallel_comm_helper() \n";
-
+            
             while ((!stop_par) || (!stop_ghost)) {
 
                 stop_par = 1;
@@ -2556,7 +2847,7 @@ class Lattice {
                 // test for both message 1 and message 2 simulatneously in if statement
                 if (status1.MPI_TAG == 1) {
                     MPI_Recv(new_loc_buffer1.data(), 9, MPI_INT, status1.MPI_SOURCE, 1, MPI_COMM_WORLD, &status1);
-                    interboundary_conflict = recieve_move_parallel(new_loc_buffer1, move_ticks);
+                    interboundary_conflict = (recieve_move_parallel(new_loc_buffer1, move_ticks) || interboundary_conflict);
                 }
                 
                 if (status1.MPI_TAG == 2) {
@@ -2584,7 +2875,7 @@ class Lattice {
                 }
                 
                 for (int j = 0; j < (int)stop_ghost_Array.size(); j++) {
-                    stop_ghost &= stop_ghost_Array[j];
+                    stop_ghost = (stop_ghost_Array[j] && stop_ghost);
                 }
             }
             MPI_Barrier(MPI_COMM_WORLD);
@@ -2604,7 +2895,7 @@ class Lattice {
 
             int loop_count = 0;
             while ((!stop_conflict)) {
-                if (loop_count > 25) exit(0);
+                if (loop_count > 3000) { std::cout << "rank: " << rank << " exceeded receive_parallel_comm_helper loop count\n"; exit(0); }
                 stop_conflict = 1;
                 status1.MPI_TAG = 0;
                 MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status1);
@@ -2633,8 +2924,28 @@ class Lattice {
             MPI_Barrier(MPI_COMM_WORLD);
             
             if ((need_reverse) || (interboundary_conflict)) {
+                Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                std::cout << "rank: " << rank << " pre rollback only_vacancies.rows(): " << only_vacancies.rows() << "  post rollback vacancies_pos.rows(): " << vacancies_pos.rows() << "\n";
                 deincrement_time();
                 reverse_moves_wrapper();
+                only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                std::cout << "rank: " << rank << " post rollback only_vacancies.rows(): " << only_vacancies.rows() << "  post rollback vacancies_pos.rows(): " << vacancies_pos.rows() << "\n"; 
+                
+                Matrix<int> unequal_elems_mat1 = comparison(only_vacancies, vacancies_pos);
+                Matrix<int> unequal_elems_mat2 = comparison(vacancies_pos, only_vacancies);
+
+                std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " unequal_elems_mat1: \n";
+                unequal_elems_mat1.print();
+                std::cout << "rank: " << rank << " move_ticks: " << move_ticks << " unequal_elems_mat2: \n";
+                unequal_elems_mat2.print();
+                if ((unequal_elems_mat1.rows() != 0) || (unequal_elems_mat2.rows() != 0)) {
+                    std::cout << "rank: " << rank << " vacancies_pos: \n";
+                    vacancies_pos.print();
+                    std::cout << "rank: " << rank << " only_vacancies: \n";
+                    only_vacancies.print();
+                    exit(0);
+                }
+
             }
             
             reverse_ghost_sites(move_ticks);
@@ -2676,7 +2987,7 @@ class Lattice {
             int move_ticks = last_tick;
             double old_time;
             bool restart = false;
-            bool reconstruct = false;
+            bool reconstruct = true;
 
             if (move_ticks != 0) { restart = true; }
 
@@ -2751,9 +3062,11 @@ class Lattice {
                     Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
                     std::cout << "rank: " << rank << " vac_nonzero.rows(): " << only_vacancies.rows() << " vacancies_pos.rows(): " << vacancies_pos.rows() << "\n"; 
                     
-                    curr_num_vacs = sum_vacs_allprocs(only_vacancies, proc_dims[0], proc_dims[1]);
-                    write_output_parallel(only_vacancies, folder, proc_dims[0], proc_dims[1], iteration, rates_i, move_ticks, curr_num_vacs, reconstruct, get_rank);
+                    if ((only_vacancies.rows() != vacancies_pos.rows()) && (rank == 0)) { std::cout << "rank: " << rank << " ERROR: mismatch in number of vacancies in vacancy list and nonzero elements of array"; }
 
+                    curr_num_vacs = sum_vacs_allprocs(only_vacancies, proc_dims[0], proc_dims[1]);
+                    std::cout << "rank: " << rank << " post sum_vacs_allprocs curr_num_vacs: " << curr_num_vacs << "\n";
+                    write_output_parallel(only_vacancies, folder, proc_dims[0], proc_dims[1], iteration, rates_i, move_ticks, curr_num_vacs, reconstruct, get_rank);
                 }
 
 
@@ -2937,7 +3250,7 @@ class Lattice {
                 proc_rank.zero();
                 
                 // Print the sum vector
-                print_1Dvector(sum_vec);
+                //print_1Dvector(sum_vec);
 
                 // Process data and assign to output arrays
                 for (int idx = 0; idx < coords_size; idx++) {
@@ -2965,34 +3278,32 @@ class Lattice {
 
                 std::string output_filename = ss.str();
                 ss << folder << "/vacs/vacancies_output_" << i << "_" << l << "_" << k << "_" << t << "_moves.txt";
-                std::cout << "filename: " << ss.str() << "\n";
+                std::cout << "filename: " << ss.str() << "\n\n";
 
                 // Write the vacancies or vacancies and rank to file
                 if (!get_rank) {
                     Matrix<int> all_vacancies = vacancies_out.nonzero();
                     write_to_file(ss.str(), all_vacancies);
                     std::cout << "all_vacancies.rows(): " << all_vacancies.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
-                    /*
+                    
                     if (all_vacancies.rows() != curr_num_vacs) {
                         std::cout << "Change in total number of vacancies in simulation -- all_vacancies.rows(): " << all_vacancies.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
                         if (k != 0) {
                             exit(0);
                         }
                     }
-                    */
                 } 
-                else {          
+                else { 
                     Matrix<int> vacancies_and_rank = proc_rank.nonzero_elems(); 
                     write_to_file(ss.str(), vacancies_and_rank);
                     std::cout << "vacancies_and_rank.rows(): " << vacancies_and_rank.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
-                    /*
+                    
                     if (vacancies_and_rank.rows() != curr_num_vacs) {
                         std::cout << "Change in total number of vacancies in simulation -- vacancies_and_rank.rows(): " << vacancies_and_rank.rows() << " curr_num_vacs: " << curr_num_vacs << "\n"; 
                         if (k != 0) {
                             exit(0);
                         }
                     }
-                    */
                 }                
                 if (reconstruct == true) {
                     reconstruct_ghost_sites(only_vacancies, xprocs, yprocs);
@@ -3126,27 +3437,26 @@ class Lattice {
                 // Process each vacancy and update the output array
                 for (int idx = 0; idx < coords_size; idx++) {
                     if ((shift_idx < num_procs) && (idx * 4 == sum_vec[shift_idx])) { 
-                        shift_idx++;  ///< Move to the next process
+                        shift_idx++; 
                     }
-
+                
                     x_idx = shift_idx % xprocs;
                     y_idx = floor(shift_idx / xprocs);
-
-                    // Calculate chunk starting indices for x and y
-                    x_chunk_start = (int)(proc_dims[0] / xprocs * x_idx);
-                    y_chunk_start = (int)(proc_dims[1] / yprocs * y_idx);
+                    
+                    x_chunk_start = (int)(total_dims[0] / xprocs * x_idx);
+                    y_chunk_start = (int)(total_dims[1] / yprocs * y_idx); 
 
                     i1 = vacs_in[4 * idx];
                     i2 = vacs_in[4 * idx + 1] + x_chunk_start;
                     i3 = vacs_in[4 * idx + 2] + y_chunk_start;
                     i4 = vacs_in[4 * idx + 3];
-
-                    vacancies_out(i1, i2, i3, i4) = 1;  ///< Set vacancy in the output array
+                    
+                    vacancies_out(i1, i2, i3, i4) = 1;
                 }
 
                 // Return the total number of non-zero vacancies
                 Matrix<int> all_vacancies = vacancies_out.nonzero();
-                std::cout << "rank: " << rank << " pre sum_vacs_allprocs all_vacancies.rows(): " << only_vacancies.rows() << "\n";
+                std::cout << "rank: " << rank << " post sum_vacs_allprocs all_vacancies.rows(): " << all_vacancies.rows() << "\n";
                 return (int)all_vacancies.rows();
             }
 

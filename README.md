@@ -5,8 +5,8 @@ This is a C++ and python library for both serial and parallel implementations of
 ### Format of the input file 
 
 For initializing a simulation, one must follow the input format provided in the example files. The rate catalog for all moves is determined in the header of the input file and follows the following structure:
-
-lattice_dims: [xdimension] [ydimension] [zdimension] 
+\n
+lattice_dims: [xdimension] [ydimension] [zdimension] \n
 atomtypes: [atom idx 0]:[atomtype name 0] [atom idx 1]:[atomtype name 10]  
 num_regions: [number of regions] 
 regions begin  

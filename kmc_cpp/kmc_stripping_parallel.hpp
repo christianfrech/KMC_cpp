@@ -2207,17 +2207,25 @@ class Lattice {
                 if (parallel_transfer) {
 
                     std::cout << "rank: " << rank << " lattice: " << lattice << "\n";
-                    std::cout << "rank: " << rank << " vacs_idx: " << vacs_idx << "\n";
+                    std::cout << "rank: " << rank << " pre add vacs_idx: " << vacs_idx << "\n";
 
                     i1 = old_vac[0];
                     i2 = old_vac[1];
                     i3 = old_vac[2];
                     i4 = old_vac[3];
-
+                    
+                    Matrix<int> only_vacancies = vacancies.nonzero(); // configuration of vacancies at current timestep
+                    std::cout << "rank: " << rank << " post rollback only_vacancies.rows(): " << only_vacancies.rows() << "  post rollback vacancies_pos.rows(): " << vacancies_pos.rows() << "\n"; 
+                
                     std::cout << "rank: " << rank << " pre reverse vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
                         << " vacancies_pos(vacs_idx,2): " << vacancies_pos(vacs_idx,2)  << " vacancies_pos(vacs_idx,3): " << vacancies_pos(vacs_idx,3) << "\n";
 
                     vacancies_pos.add_row(vacs_idx, rank);
+
+                    std::cout << "rank: " << rank << " (added) pre reverse vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
+                        << " vacancies_pos(vacs_idx,2): " << vacancies_pos(vacs_idx,2)  << " vacancies_pos(vacs_idx,3): " << vacancies_pos(vacs_idx,3) << "\n";
+                        std::cout << "rank: " << rank << " (added) pre reverse vacancies_pos(vacs_idx+1,0): " << vacancies_pos(vacs_idx+1,0) << " vacancies_pos(vacs_idx+1,1): " << vacancies_pos(vacs_idx+1,1) 
+                        << " vacancies_pos(vacs_idx+1,2): " << vacancies_pos(vacs_idx+1,2)  << " vacancies_pos(vacs_idx+1,3): " << vacancies_pos(vacs_idx+1,3) << "\n";
                     vacancies_pos(vacs_idx,1) = (size_t)old_vac[1];
                     vacancies_pos(vacs_idx,2) = (size_t)old_vac[2];
                     vacancies_pos(vacs_idx,3) = (size_t)old_vac[3];
@@ -2285,11 +2293,18 @@ class Lattice {
                     }
 
 
-                    for (int i=0; i<(int)prev_idxs.size(); i++)  {
-                        if ((vacs_idx <= prev_idxs[i]) && (vacs_idx != -1)) { prev_idxs[i] ++; }
-                    }
+                    std::cout << "rank: " << rank << " post add vacs_idx: " << vacs_idx << "\n";
 
-                    std::cout << "rank: " << rank << " post reverse reverse vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
+                    /*
+                    for (int i=0; i<(int)prev_idxs.size(); i++)  {
+                        if (((vacs_idx-1) <= prev_idxs[i]) && (prev_idxs[i] != -1)) { prev_idxs[i] ++; }
+                    }
+                    for (int i=0; i<(int)par_prev_idx.size(); i++)  {
+                        if (((vacs_idx-1) <= par_prev_idx[i]) && (par_prev_idx[i] != -1)) { par_prev_idx[i] ++; }
+                    }
+                    */
+
+                    std::cout << "rank: " << rank << " post reverse vacancies_pos(vacs_idx,0): " << vacancies_pos(vacs_idx,0) << " vacancies_pos(vacs_idx,1): " << vacancies_pos(vacs_idx,1) 
                         << " vacancies_pos(vacs_idx,2): " << vacancies_pos(vacs_idx,2)  << " vacancies_pos(vacs_idx,3): " << vacancies_pos(vacs_idx,3) << "\n";
 
 
@@ -2449,9 +2464,14 @@ class Lattice {
             vacancies_pos.remove_row(vacs_idx, rank);
             num_of_vacs --;
             
-            for (int i=0; i<(int)prev_idxs.size(); i++)  {
-                if ((vacs_idx <= prev_idxs[i]) && (vacs_idx != -1)) { prev_idxs[i] --; }
+            /*
+            for (int i=0; i<(int)par_prev_idx.size(); i++)  {
+                if ((vacs_idx <= par_prev_idx[i]) && (par_prev_idx[i] != -1)) { par_prev_idx[i] --; }
             }
+            for (int i=0; i<(int)prev_idxs.size(); i++)  {
+                if ((vacs_idx <= prev_idxs[i]) && (prev_idxs[i] != -1)) { prev_idxs[i] --; }
+            }
+            */
 
             std::vector<int> old_vac(4);
             old_vac[0] = (par_prev_oldlocs.at((par_prev_oldlocs.size()-1)).at(0));
@@ -2519,12 +2539,18 @@ class Lattice {
                     new_vac[i] = new_loc[i];
                     old_vac[i] = old_loc[i];
                 }
-
-                for (int i=0; i<(int)prev_idxs.size(); i++)  {
-                    if ((vac_idx <= prev_idxs[i]) && (vac_idx != -1)) { prev_idxs[i] --; }
+                /*
+                for (int i=0; i<(int)par_prev_idx.size(); i++)  {
+                    if ((vac_idx <= par_prev_idx[i]) && (par_prev_idx[i] != -1)) { par_prev_idx[i] --; }
                 }
+                for (int i=0; i<(int)prev_idxs.size(); i++)  {
+                    if ((vac_idx <= prev_idxs[i]) && (prev_idxs[i] != -1)) { prev_idxs[i] --; }
+                }
+                */
+
 
             }
+
             // entering filler values if null move
             else if (vac_idx == -1) {
                 for (int i=0; i<(int)shift.size(); i++)  {
@@ -2535,6 +2561,7 @@ class Lattice {
                     old_vac[i] = old_loc[i];
                 }
             }
+
             // standard move
             else {
                 for (int i=0; i<(int)new_vac.size(); i++)  {
@@ -2593,10 +2620,14 @@ class Lattice {
             vac_old[2] = (parallel_buffer[7]);
             vac_old[3] = (parallel_buffer[8]);
 
-
+            /*
             for (int i=0; i<(int)par_prev_idx.size(); i++)  {
-                if ((vac_idx <= par_prev_idx[i]) && (vac_idx != -1)) { prev_idxs[i] ++; }
+                if ((vac_idx <= par_prev_idx[i]) && (par_prev_idx[i] != -1)) { par_prev_idx[i] ++; }
             }
+            for (int i=0; i<(int)prev_idxs.size(); i++)  {
+                if ((vac_idx <= prev_idxs[i]) && (prev_idxs[i] != -1)) { prev_idxs[i] ++; }
+            }
+            */
 
             par_prev_oldlocs.push_back(vac_old);
             par_prev_newlocs.push_back(vac_new);
@@ -2630,10 +2661,12 @@ class Lattice {
         void reverse_moves_wrapper() {
 
             for (int i=(prev_move_type.size()-1); i>=0; i--) { 
+                
                 std::cout << "prev_move_type: " << prev_move_type[i] << "\n";
+
                 if (prev_move_type[i] == 0) reverse_move(false); // reversing in-lattice move with no parallel transfer
-                if (prev_move_type[i] == 1) reverse_move(true); // reversing move with sending parallel transfer
-                if (prev_move_type[i] == 2) reverse_move_parallel(); // reversing move with recieving parallel transfer
+                else if (prev_move_type[i] == 1) reverse_move(true); // reversing move with sending parallel transfer
+                else if (prev_move_type[i] == 2) reverse_move_parallel(); // reversing move with recieving parallel transfer
             }
 
             prev_move_type.clear();
@@ -2707,7 +2740,6 @@ class Lattice {
             }
             else {
                 /* store previous two moves */
-
                 size_t rows = vacancies_pos.rows();
                 size_t cols = vacancies_pos.cols();
                 vacancies_pos.reshape(rows+1, cols, rank);
@@ -2732,8 +2764,6 @@ class Lattice {
 
             return interboundary_conflict;
         }
-
-
 
         /**
         * @brief Handles the reversal of ghost sites during a simulation.

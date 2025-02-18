@@ -152,28 +152,46 @@ public:
      * \param [in] n_keep       Number of elements to preserve in all rows of the matrix
      */
     void add_row(size_t row, int rank) { 
-        //std::cout << "rows_: " << rows_ << " row: " << row << "\n";
+        std::cout << "rank: " << rank << " rows_: " << rows_ << " row: " << row << "\n";
+        std::cout << "rank: " << rank << " row[0]" << (*this)(row, 0) << " row[1]: " << (*this)(row, 1) << " row[2]: " << (*this)(row, 2) << " row[3]: " << (*this)(row, 3) << "\n";
+        
+        std::cout << "rank: " << rank << " pre rows_: " << rows_ << " row+1: " << (row+1) << "\n";
+        std::cout << "rank: " << rank << " pre row+1[0]: " << (*this)((row+1), 0) << " row+1[1]: " << (*this)((row+1), 1) << " row+1[2]: " << (*this)((row+1), 2) << " row+1[3]: " << (*this)((row+1), 3) << "\n";
         reshape((rows_ + 1), cols_);
 
         if ((row < rows_) && (row >= 0)) {
-            for (size_t row_idx = 0; row_idx < row; row_idx++) {
-                for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
+            for (int row_idx = 0; row_idx < row; row_idx++) {
+                for (int col_idx = 0; col_idx < cols_; col_idx++) {
                     (*this)(row_idx, col_idx) = (*this)(row_idx, col_idx);
                 }
             }
 
-            for (size_t row_idx = (size_t)(rows_-2); row_idx > (size_t)(row-1); row_idx--) {
-                for (size_t col_idx = 0; col_idx < cols_; col_idx++) {
-                    //std::cout << "rank: " << rank << " row_idx: " << row_idx << "\n";    
-                    //std::cout << "rank: " << rank << " (*this).rows(): " << (*this).rows() << "\n";                
+            for (int row_idx = (int)(rows_-2); row_idx > (int)(row-1); row_idx--) {
+                for (int col_idx = 0; col_idx < cols_; col_idx++) {
+                    if ((row_idx < (row + 10)) && (col_idx == 0)) {
+                        std::cout << "rank: " << rank << " pre shift row_idx: " << row_idx << "\n";    
+                        std::cout << "rank: " << rank << " pre shift row_idx[0]: " << (*this)(row_idx, 0) << " row_idx[1]: " << (*this)(row_idx, 1) << " row_idx[2]: " << (*this)(row_idx, 2) << " row_idx[3]: " << (*this)(row_idx, 3) << "\n";
+                        std::cout << "rank: " << rank << " pre shift row_idx+1[0]: " << (*this)((row_idx+1), 0) << " row_idx+1[1]: " << (*this)((row_idx+1), 1) << " row_idx+1[2]: " << (*this)((row_idx+1), 2) << " row_idx+1[3]: " << (*this)((row_idx+1), 3) << "\n";
+                    }
+                    
                     (*this)((size_t)(row_idx+1), col_idx) = (*this)((size_t)(row_idx), col_idx);
+
+                    if ((row_idx < (row + 10)) && (col_idx == 0)) {
+                        std::cout << "rank: " << rank << " post shift row_idx: " << row_idx << "\n";    
+                        std::cout << "rank: " << rank << " post shift row_idx[0]: " << (*this)(row_idx, 0) << " row_idx[1]: " << (*this)(row_idx, 1) << " row_idx[2]: " << (*this)(row_idx, 2) << " row_idx[3]: " << (*this)(row_idx, 3) << "\n";
+                        std::cout << "rank: " << rank << " post shift row_idx+1[0]: " << (*this)((row_idx+1), 0) << " row_idx+1[1]: " << (*this)((row_idx+1), 1) << " row_idx+1[2]: " << (*this)((row_idx+1), 2) << " row_idx+1[3]: " << (*this)((row_idx+1), 3) << "\n";
+                    }    
                 }
             }
         }
         else {
             std::cout << "ERROR: Attempted to add row out of bounds for the matrix - row " << row << " on rank " << rank << "\n";
-            exit(0);
         }
+        std::cout << "rank: " << rank << " post rows_: " << rows_ << " row: " << row << "\n";
+        std::cout << "rank: " << rank << " post row[0]: " << (*this)(row, 0) << " row[1]: " << (*this)(row, 1) << " row[2]: " << (*this)(row, 2) << " row[3]: " << (*this)(row, 3) << "\n";
+        std::cout << "rank: " << rank << " post rows_: " << rows_ << " row+1: " << (row+1) << "\n";
+        std::cout << "rank: " << rank << " post row+1[0]" << (*this)((row+1), 0) << " row+1[1]: " << (*this)((row+1), 1) << " row+1[2]: " << (*this)((row+1), 2) << " row+1[3]: " << (*this)((row+1), 3) << "\n";
+
     }
 
     /*! \brief Remove row from col

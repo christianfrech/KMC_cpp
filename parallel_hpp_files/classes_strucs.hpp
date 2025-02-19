@@ -24,32 +24,231 @@
  /*! \brief A class for storing data (rate constants) corresponding to a subset of coordinates in a FourDArr object*/
 class Region {
     public:
-        int id;
-        std::string bias;
-        std::string type;
-        std::vector<int> slopes;
-        std::vector<int> shifts;
-        std::vector<int> lowerbound;
-        std::vector<int> upperbound;
-        std::vector< std::vector<int> > params;
-        std::vector< std::vector< std::vector<double> > > energies; 
+    int id;  ///< Unique identifier for the region.
+    std::string bias;  ///< Bias direction of the region.
+    std::string type;  ///< Type of region (e.g., "GB" or "BLOCK").
+    std::vector<int> slopes;  ///< Slopes of the region (used for "GB" type).
+    std::vector<int> shifts;  ///< Shifts of the region (used for "GB" type).
+    std::vector<int> lowerbound;  ///< Lower bounds for the region (used for "BLOCK" type).
+    std::vector<int> upperbound;  ///< Upper bounds for the region (used for "BLOCK" type).
+    std::vector<std::vector<int>> params;  ///< Parameters defining the region.
+    std::vector<std::vector<std::vector<double>>> energies;  ///< Energy values for the region.
+    FourDDoubleArr region_rates_L;  ///< Left transition rates in the region.
+    FourDDoubleArr region_rates_R;  ///< Right transition rates in the region.
+    std::mt19937 rand_num;  ///< Random number generator for the region.
+    double mean;  ///< Mean value of the energy barrier distribution.
+    double stddev;  ///< Standard deviation of the energy barrier distribution.
+    double barrier_min;  ///< Minimum allowed energy barrier.
+    double barrier_max;  ///< Maximum allowed energy barrier.
+    std::vector<int> dimensions;  ///< Dimensions of the region.
+    bool random;  ///< Indicates whether rates are randomly assigned.
+    std::normal_distribution<double> distribution;  ///< Normal distribution for random barrier generation.
+    std::vector<double> rates;  ///< Predefined rates for the region.
+    bool interface;  ///< Whether the region has an interface.
+    int interface_i;  ///< Index of the interface.
+    int interface_dim;  ///< Dimension of the interface.
+    double interface_100_rate;  ///< Rate for the 100 interface.
 
-        Region(int id_in, std::string reg_type, std::string bias_direc, std::vector< std::vector<int> > params_in):
-            id(id_in), 
-            type(reg_type),
-            bias(bias_direc),
-            params(params_in)
+    /**
+     * @brief Constructs a Region object with given parameters.
+     * 
+     * @param id_in Unique identifier for the region.
+     * @param reg_type Type of region ("GB" or "BLOCK").
+     * @param bias_direc Bias direction for the region.
+     * @param params_in Parameters defining the region.
+     * @param distribution Distribution parameters for random barriers.
+     * @param random_val Boolean indicating whether rates are randomized.
+     * @param rates_in Vector of predefined rates.
+     * @param interface_params Parameters for interface configuration.
+     * @param interface_100_rate_in Rate for the 100 interface.
+     */
+    Region(int id_in, std::string reg_type, std::string bias_direc, std::vector<std::vector<int>> params_in,
+           std::vector<double> distribution, bool random_val, std::vector<double> rates_in,
+           std::vector<int> interface_params, double interface_100_rate_in);
 
-        {
-            if (type == "GB") {
-                slopes = params[0];
-                shifts = params[1];
-            }
-            else if (type == "BLOCK") {
-                lowerbound = params[0];
-                upperbound = params[1];
+    /**
+     * @brief Computes the average connectivity of sites within the region.
+     * 
+     * @return The average connectivity of sites.
+     */
+    double avg_connectivity() {
+        std::vector< std::vector<int> > diag_directions = {{0,0,0}, {1,0,0}, {0,1,0}, {1,1,0}, {0,0,1}, {1,0,1}, {0,1,1}, {1,1,1}};
+        int degree_sum = 0;
+        int site_count = 0;
+        
+        for (int i=0; i<(int)dimensions[0]; i++) {
+            for (int j=0; j<(int)dimensions[1]; j++) {
+                for (int k=0; k<(int)dimensions[2]; k++) {
+                    for (int l=0; l<(int)dimensions[3]; l++) {
+                        
+                        if ( region_rates_L(i,j,k,l) != -1) {
+
+                            //std::cout << "i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
+                            int connectivity = 0;
+                            
+                            // moving vacancy from bc site to vertex site
+                            if (i == 1) {
+                                for (int i=0; i<(int)diag_directions.size(); i++) {
+                                    //if ((vac[3] == 0)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                                    //else if ((vac[3] == (int)(dimensions[3]-1))) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                                    if ( region_rates_L( 0, (j + diag_directions[i][0]), (k + diag_directions[i][1]), 
+                                            (l + diag_directions[i][2])) != -1) { connectivity ++; }
+                                }
+                            }
+
+                            // moving vacancy from vertex site to bc site     
+                            else if (i == 0) {
+                                for (int i=0; i<(int)diag_directions.size(); i++) {
+                                    //if ((vac[3] == 0)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                                    //else if ((vac[3] == (int)(lattice_dim[2]-1))) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                                    if ( region_rates_L( 1, (j - diag_directions[i][0]), (k - diag_directions[i][1]), 
+                                            (l - diag_directions[i][2])) != -1) { connectivity ++; }
+                                }
+                            }
+
+                            degree_sum += connectivity;
+                            site_count ++;
+                        }
+                    }
+                }
             }
         }
+        
+        double avg_degree = (double)degree_sum / (double)site_count;
+        
+        return avg_degree;
+    }
+
+    /**
+     * @brief Generates a random energy barrier within specified bounds.
+     * 
+     * @return A randomly generated barrier value.
+     */
+    double get_rand_barrier() {
+
+        double barrier = distribution(rand_num);
+        
+        while ((barrier > barrier_max) || (barrier < barrier_min)) { barrier = distribution(rand_num); }
+        
+        return barrier;
+
+    }
+
+    /**
+     * @brief Retrieves the transition rate for a given site in the region.
+     * 
+     * @param i First index (layer).
+     * @param j Second index (x-coordinate).
+     * @param k Third index (y-coordinate).
+     * @param l Fourth index (z-coordinate).
+     * @param LR_idx Indicates whether to retrieve from Left (1) or Right (0) rate array.
+     * @return The transition rate at the specified site.
+     */
+    double get_rate(int i, int j, int k, int l, int LR_idx) {
+
+        int i_new = i;
+        int j_new = j - lowerbound[0];
+        int k_new = k - lowerbound[1];
+        int l_new = l - lowerbound[2];
+
+        if (LR_idx) return region_rates_L(i_new, j_new, k_new, l_new);
+        else return region_rates_R(i_new, j_new, k_new, l_new);
+
+    }
+
+    /**
+     * @brief Randomly blocks sites within the region until the connectivity is within a desired range.
+     */
+    void random_blocking() {
+        int i_new; int j_new; int k_new; int l_new;
+        std::random_device dev;
+        std::mt19937 rng(dev());
+        std::uniform_int_distribution<std::mt19937::result_type> i_rand(0,1); 
+        std::uniform_int_distribution<std::mt19937::result_type> j_rand(0,(int)(dimensions[1]));
+        std::uniform_int_distribution<std::mt19937::result_type> k_rand(0,(int)(dimensions[2])); 
+        std::uniform_int_distribution<std::mt19937::result_type> l_rand(0,(int)(dimensions[3])); 
+
+        double connectivity = avg_connectivity();
+        std::cout << "connectivity: " << connectivity << "\n";
+        
+        while ((connectivity < 5) || (7 < connectivity)) {
+
+            i_new = i_rand(rng); 
+            j_new = j_rand(rng); 
+            k_new = k_rand(rng); 
+            l_new = l_rand(rng); 
+            //std::cout << "i_new: " << i_new << " j_new: " << j_new << " k_new: " << k_new << " l_new: " << l_new << "\n";
+
+            region_rates_L(i_new, j_new, k_new, l_new) = -1;
+            region_rates_R(i_new, j_new, k_new, l_new) = -1;
+
+            connectivity = avg_connectivity();
+        }
+    }
+
+    /**
+     * @brief Generates random barriers according to a distribution, checks if they are within bounds,
+     * and assigns them to sites in the region rate map.
+     * 
+     * @param reg_rates A vector of rates to be assigned within the region.
+     */
+    void random_barrier_assigner(std::vector<double> reg_rates) {
+
+        int x_range = dimensions[1];
+        int y_range = dimensions[2];
+        int z_range = dimensions[3];
+
+        std::cout << "reg_rates: \n";
+        print_1Dvector(reg_rates);
+
+        double rand_barrier;
+        double rate;
+        double EULER = 2.71828182845904523536;
+
+        int direc;
+        if (reg_rates[0] > reg_rates[1]) direc = 0;
+        else direc = 1;
+
+        std::cout << "x_range: " << x_range << " y_range " << y_range << " z_range " << z_range << "\n";
+
+        // iterating over region sites
+        for (int i=0; i<2; i++) {
+            for (int j=0; j<x_range; j++) {
+                for (int k=0; k<y_range; k++) {
+                    for (int l=0; l<z_range; l++) {
+                        if (region_rates_L(i,j,k,l) != -1) {
+                            
+                            rand_barrier = get_rand_barrier();
+                            rate = 5e12 * std::pow(EULER, (-rand_barrier / (300* 8.6173e-5)));
+                            
+                            if (direc == 0) {
+
+                                if (rand_barrier < 0) {
+                                    region_rates_L(i,j,k,l) =  rate;
+                                    region_rates_R(i,j,k,l) =  5e12;
+                                }
+                                else {
+                                    region_rates_L(i,j,k,l) =  5e12;
+                                    region_rates_R(i,j,k,l) =  rate;
+                                }
+                            }
+                            else {
+
+                                if (rand_barrier < 0) {
+                                    region_rates_L(i,j,k,l) =  5e12;
+                                    region_rates_R(i,j,k,l) =  rate;
+                                }
+                                else {
+                                    region_rates_L(i,j,k,l) =  rate;
+                                    region_rates_R(i,j,k,l) =  5e12;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 };
 
 /*! \brief A class for representing and manipulating matrices with variable dimension sizes

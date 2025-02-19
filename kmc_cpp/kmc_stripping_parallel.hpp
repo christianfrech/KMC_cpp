@@ -145,6 +145,177 @@ class Lattice {
                 rank = rank_in;
             }
 
+        /**
+        * @brief Wrapper function to assign rates to region-specific rate catalogs.
+        * 
+        * @param temp_regions A vector of pointers to Region objects representing different regions.
+        * @param misc_rates A constant reference to a vector of double values representing miscellaneous rates.
+        */
+        void assign_region_rates_wrapper(std::vector<Region*>& temp_regions, const std::vector<double>& misc_rates) {
+            for (int i=0; i<(int)temp_regions.size(); i++) {
+                assign_region_rates(temp_regions[i], misc_rates, i);
+            }
+        }
+
+        /**
+        * @brief Assigns rates to region-specific rate catalogs.
+        * 
+        * @param region A constant pointer to a Region object whose rates will be assigned.
+        * @param misc_rates A constant reference to a vector of double values representing miscellaneous rates.
+        * @param i An integer index representing the position of the region in the rate catalog.
+        */
+        void assign_region_rates(const Region* region, const std::vector<double>& misc_rates, int i) {
+        
+            int cols = regionrates_100_L.cols();
+            for (size_t j=0; j<cols; j++) {
+                regionrates_100_L(i,j) = misc_rates[1];
+                regionrates_100_R(i,j) = misc_rates[1];
+            }
+
+            cols = regionrates_111_L.cols();
+            for (size_t j=0; j<cols; j++) {
+                regionrates_111_L(i,j) = region->rates[0];
+                regionrates_111_R(i,j) = region->rates[1];
+            }         
+        }
+
+        /**
+        * @brief Checks if an adjacent site is unoccupied for a move.
+        *
+        * This function determines the number of nearest-neighbor vacancies of a given site
+        * in a specified lattice configuration.
+        *
+        * @param i First coordinate of the site.
+        * @param j Second coordinate of the site.
+        * @param k Third coordinate of the site.
+        * @param l Fourth coordinate of the site.
+        * @param direc_sign Directional sign indicator.
+        * @param s Direction index.
+        * @param lattice Type of lattice structure.
+        * @return int Number of nearest-neighbor vacancies.
+        */
+        int get_NNcountofNN(int i, int j, int k, int l, int direc_sign, int s, int lattice) {
+            int i1; int i2; int i3; int i4; int direc_sign_NN;
+            int i1_NN; int i2_NN; int i3_NN; int i4_NN;
+            
+            if ((lattice == 2) || (lattice == 3)) {
+                if (lattice == 2) { direc_sign_NN = 1; }
+                else if (lattice == 3) { direc_sign_NN = 1; }
+                i1 = i;
+                i2 = (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                i3 = (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                i4 = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]); 
+            }
+            else if ((lattice == 0) || (lattice == 1)) {
+                if (lattice == 0) { i1 = 1; direc_sign_NN =  1; }
+                else if (lattice == 1) { i1 = 0; direc_sign_NN = -1; }
+                i2 = (((j + direc_sign * diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                i3 = (((k + direc_sign * diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                i4 = (((l + direc_sign * diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+            }
+
+            //std::cout << " i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
+            //std::cout << " i1: " << i1 << " i2: " << i2 << " i3: " << i3 << " i4: " << i4 << "\n";
+            int NN_count = 0;
+            for (int s2=0; s2 < (int)diag_directions.size(); s2++) {
+                i1_NN = !i1;
+                i2_NN = (((i2 + direc_sign_NN * diag_directions[s2][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                i3_NN = (((i3 + direc_sign_NN * diag_directions[s2][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                i4_NN = (((i4 + direc_sign_NN * diag_directions[s2][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+
+                /*
+                if (i == 0) {
+                    new_j = (((j - diag_directions[s][0]) % sublattice_dim[0] + sublattice_dim[0]) % sublattice_dim[0]);
+                    new_k = (((k - diag_directions[s][1]) % sublattice_dim[1] + sublattice_dim[1]) % sublattice_dim[1]);
+                    new_l = (((l - diag_directions[s][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2]);
+                }
+                else if (i == 1) {
+                    new_j = (((j + diag_directions[s][0]) % sublattice_dim[0] + sublattice_dim[0]) % sublattice_dim[0]);
+                    new_k = (((k + diag_directions[s][1]) % sublattice_dim[1] + sublattice_dim[1]) % sublattice_dim[1]);
+                    new_l = (((l + diag_directions[s][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2]);
+                }
+                */
+
+                if (((lattice == 0) || (lattice == 1)) && (i4 == 0) && (i1 == 0) && (diag_directions[s2][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                else if (((lattice == 0) || (lattice == 1)) && (i4 == (int)(lattice_dim[2]-1)) && (i1 == 1) && (diag_directions[s2][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                else if (((lattice == 2) || (lattice == 3)) && (i4 == 0) && (edge_directions[s][2] == -1)) {}  
+                else if (((lattice == 2) || (lattice == 3)) && (i4 == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
+                else {
+                    //std::cout << " i1_NN: " << i1_NN << " i2_NN: " << i2_NN << " i3_NN: " << i3_NN << " i4_NN: " << i4_NN << "\n";
+                    if ((i1_NN == i) && (i2_NN == j) && (i3_NN == k) && (i4_NN == l)) {}
+                    else if (vacancies(i1_NN,i2_NN,i3_NN,i4_NN)) {NN_count++;} // std::cout << "incriment \n";}
+                }
+
+                if ((i == 0) && (j == 0) && (diag_directions[s][0] == 1)) {/*check with proc to -x direction*/
+                    
+                    if ((k == 0) && (diag_directions[s][1] == 1)) {
+                        /*check neighbor -x,-y array */
+                        if ((proc_neighbors(rank,5) == rank) && (!check_move_free(i1,i2,i3,i4,-1,s,0))) {NN_count ++;}
+                        else if ((proc_neighbors(rank,5) != rank) && (proc_neg_x_neighbors(0, 1, 0, (size_t)(new_l)))) {NN_count ++;}
+                    }
+                    else {
+                        /*check neighbor -x array */
+                        if ((proc_neighbors(rank,4) == rank) && (!check_move_free(i1,i2,i3,i4,-1,s,0))) {NN_count ++;}
+                        else if ((proc_neighbors(rank,4) != rank) && (proc_neg_x_neighbors(0, 1, (size_t)(new_k+1), (size_t)(new_l)))) {NN_count ++;}
+                    }
+                }
+                
+                else if ((i == 1) && (j == (sublattice_dim[0] - 1)) && (diag_directions[s][0] == 1)) {/*check with proc to +x direction*/ 
+                    
+                    if ((k == ((sublattice_dim[1] - 1))) && (diag_directions[s][1] == 1)) {
+                        /*check neighbor (+x,+y) array */
+                        if (((proc_neighbors(rank,1) == rank)) && (!check_move_free(i1,i2,i3,i4,1,s,1))) {NN_count ++;}
+                        else if (((proc_neighbors(rank,1) != rank)) && (proc_pos_x_neighbors(0, 0, (size_t)(x_dims[2]-1), (size_t)(new_l)))) {NN_count ++;}
+                    }
+                    else {
+                        /*check neighbor (+x) array */
+                        if (((proc_neighbors(rank,0) == rank)) && (!check_move_free(i1,i2,i3,i4,1,s,1))) {NN_count ++;}
+                        else if (((proc_neighbors(rank,0) != rank)) && (proc_pos_x_neighbors(0, 0, (size_t)(new_k), (size_t)(new_l)))) {NN_count ++;}
+                    }
+                }
+
+                else if ((i == 0) && (k == 0) && (diag_directions[s][1] == 1)) {/*check with proc to -y direction*/
+                    
+                    if ((j == 0) && (diag_directions[s][0] == 1)) {
+                        /*check neighbor (-x,-y) array */
+                        if ((proc_neighbors(rank,5) == rank) && (!check_move_free(i1,i2,i3,i4,-1,s,0))) {NN_count ++;}
+                        else if ((proc_neighbors(rank,5) != rank) && (proc_neg_y_neighbors(0, 1, 0, (size_t)(new_l)))) {NN_count ++;}
+                    }
+                    else {
+                        if (((proc_neighbors(rank,6) == rank)) && (!check_move_free(i1,i2,i3,i4,-1,s,0))) {NN_count ++;}
+                        else if (((proc_neighbors(rank,6) != rank)) && (proc_neg_y_neighbors(0, 1, (size_t)(new_j+1), (size_t)(new_l)))) {NN_count ++;}
+                    }
+                }
+
+                else if ((i == 1) && (k == (sublattice_dim[1] - 1)) && (diag_directions[s][1] == 1)) {/*check with proc to +y direction*/
+
+                    if ((j == ((sublattice_dim[0] - 1))) && (diag_directions[s][0] == 1)) {
+                        /*check neighbor +x,+y array */
+                        if ((proc_neighbors(rank,1) == rank) && (!check_move_free(i1,i2,i3,i4,1,s,1))) {NN_count ++;}
+                        else if (((proc_neighbors(rank,1) != rank)) && (proc_pos_y_neighbors(0, 0, (size_t)(y_dims[2]-1), (size_t)(new_l)))) {NN_count ++;}
+                    }
+                    else {
+                        /*check neighbor +y array */
+                        if ((proc_neighbors(rank,2) == rank) && (!check_move_free(i1,i2,i3,i4,1,s,1))) {NN_count ++;}
+                        else if ((proc_neighbors(rank,2) != rank) && (proc_pos_y_neighbors(0, 0, (size_t)(new_j), (size_t)(new_l)))) {NN_count ++;}
+                    }
+                }
+
+                else {
+                    if ((i == 0) && (vacancies(i1_NN, i2_NN, i3_NN, i4_NN) == 1)) {
+                        // checking that vertex site -> bc site move has new site occupied by atom
+                        NN_count ++;
+                    }
+                    else if ((i == 1) && (vacancies(i1_NN, i2_NN, i3_NN, i4_NN) == 1)) {
+                        // checking that bc site -> vertex site move has new site occupied by atom
+                        NN_count ++;
+                    }
+                }
+            }
+
+            return NN_count;
+        }
+
         /*
         subroutine for adding move information to matrices stored as attributes of Lattice struc
         */
@@ -178,8 +349,8 @@ class Lattice {
 
 
             // getting rate corresponding to move
-            if (NN_count >= void_threshold) { rate = void_barrier; }  
-            else {  rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice(curr_move_num,0)); }
+            if ((NN_vac >= void_threshold) && (NN_newsite >= void_threshold)) { rate = terrace_barrier_111; }  
+            else {  rate = new_get_rateconstants(moves_coords[curr_move_num], moves_shifts[curr_move_num], moves_lattice(curr_move_num,0), NN_vac, NN_newsite); }
 
             if (rate == -1) {curr_move_num --;} //case for when move not available in rate catalog
             else {
@@ -215,7 +386,7 @@ class Lattice {
 
             return true;
         }
-        
+
         /**
         * @brief Routine to count the number of vacancies in the nearest neighbor (NN) shell.
         *
@@ -248,7 +419,7 @@ class Lattice {
                     new_l = (((l + diag_directions[s][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2]);
                 }
 
-                if ((i == 0) && (j == 0) && (diag_directions[s][0] == 1)) {/*communicate with proc to -x direction*/
+                if ((i == 0) && (j == 0) && (diag_directions[s][0] == 1)) {/*check with proc to -x direction*/
                     
                     if ((k == 0) && (diag_directions[s][1] == 1)) {
                         /*check neighbor -x,-y array */
@@ -262,7 +433,7 @@ class Lattice {
                     }
                 }
                 
-                else if ((i == 1) && (j == (sublattice_dim[0] - 1)) && (diag_directions[s][0] == 1)) {/*communicate with proc to +x direction*/ 
+                else if ((i == 1) && (j == (sublattice_dim[0] - 1)) && (diag_directions[s][0] == 1)) {/*check with proc to +x direction*/ 
                     
                     if ((k == ((sublattice_dim[1] - 1))) && (diag_directions[s][1] == 1)) {
                         /*check neighbor (+x,+y) array */
@@ -276,7 +447,7 @@ class Lattice {
                     }
                 }
 
-                else if ((i == 0) && (k == 0) && (diag_directions[s][1] == 1)) {/*communicate with proc to -y direction*/
+                else if ((i == 0) && (k == 0) && (diag_directions[s][1] == 1)) {/*check with proc to -y direction*/
                     
                     if ((j == 0) && (diag_directions[s][0] == 1)) {
                         /*check neighbor (-x,-y) array */
@@ -289,7 +460,7 @@ class Lattice {
                     }
                 }
 
-                else if ((i == 1) && (k == (sublattice_dim[1] - 1)) && (diag_directions[s][1] == 1)) {/*communicate with proc to +y direction*/
+                else if ((i == 1) && (k == (sublattice_dim[1] - 1)) && (diag_directions[s][1] == 1)) {/*check with proc to +y direction*/
 
                     if ((j == ((sublattice_dim[0] - 1))) && (diag_directions[s][0] == 1)) {
                         /*check neighbor +x,+y array */
@@ -318,6 +489,7 @@ class Lattice {
 
             return NN_count;
         }
+
 
         /**
         * @brief Find actions in the subdomain assigned to the current processor.
@@ -389,13 +561,25 @@ class Lattice {
                         
                         if ((k == 0) && (diag_directions[s][1] == 1)) {
                             /*check neighbor -x,-y array */
-                            if ((proc_neighbors(rank,5) == rank) && check_move_free(i,j,k,l,-1,s,0)) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count);}
-                            else if ((proc_neighbors(rank,5) != rank) && (!proc_neg_x_neighbors(0, 1, 0, (size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count);}
+                            if ((proc_neighbors(rank,5) == rank) && check_move_free(i,j,k,l,-1,s,0)) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
+                            }
+                            else if ((proc_neighbors(rank,5) != rank) && (!proc_neg_x_neighbors(0, 1, 0, (size_t)(new_l)))) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
+                            }
                         }
                         else {
                             /*check neighbor -x array */
-                            if ((proc_neighbors(rank,4) == rank) && check_move_free(i,j,k,l,-1,s,0)) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count);}
-                            else if ((proc_neighbors(rank,4) != rank) && (!proc_neg_x_neighbors(0, 1, (size_t)(new_k+1), (size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count);}
+                            if ((proc_neighbors(rank,4) == rank) && check_move_free(i,j,k,l,-1,s,0)) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
+                            }
+                            else if ((proc_neighbors(rank,4) != rank) && (!proc_neg_x_neighbors(0, 1, (size_t)(new_k+1), (size_t)(new_l)))) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
+                            }
                         }
                     }
                     
@@ -403,13 +587,25 @@ class Lattice {
                         
                         if ((k == ((sublattice_dim[1] - 1))) && (diag_directions[s][1] == 1)) {
                             /*check neighbor +x,+y array */
-                            if (((proc_neighbors(rank,1) == rank)) && check_move_free(i,j,k,l,1,s,1)) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count);}
-                            else if (((proc_neighbors(rank,1) != rank)) && (!proc_pos_x_neighbors(0, 0, (size_t)(x_dims[2]-1), (size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count);}
+                            if (((proc_neighbors(rank,1) == rank)) && check_move_free(i,j,k,l,1,s,1)) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
+                            }
+                            else if (((proc_neighbors(rank,1) != rank)) && (!proc_pos_x_neighbors(0, 0, (size_t)(x_dims[2]-1), (size_t)(new_l)))) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
+                            }
                         }
                         else {
                             /*check neighbor +x array */
-                            if (((proc_neighbors(rank,0) == rank)) && check_move_free(i,j,k,l,1,s,1)) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count);}
-                            else if (((proc_neighbors(rank,0) != rank)) && (!proc_pos_x_neighbors(0, 0, (size_t)(new_k), (size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count);}
+                            if (((proc_neighbors(rank,0) == rank)) && check_move_free(i,j,k,l,1,s,1)) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
+                            }
+                            else if (((proc_neighbors(rank,0) != rank)) && (!proc_pos_x_neighbors(0, 0, (size_t)(new_k), (size_t)(new_l)))) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
+                            }
                         }
                     }
 
@@ -417,35 +613,61 @@ class Lattice {
                         
                         if ((j == 0) && (diag_directions[s][0] == 1)) {
                             /*check neighbor -x,-y array */
-                            if ((proc_neighbors(rank,5) == rank) && check_move_free(i,j,k,l,-1,s,0)) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count);}
-                            else if ((proc_neighbors(rank,5) != rank) && (!proc_neg_y_neighbors(0, 1, 0, (size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count);}
+                            if ((proc_neighbors(rank,5) == rank) && check_move_free(i,j,k,l,-1,s,0)) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
+                            }
+                            else if ((proc_neighbors(rank,5) != rank) && (!proc_neg_y_neighbors(0, 1, 0, (size_t)(new_l)))) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
+                            }
                         }
-                        else if (((proc_neighbors(rank,6) == rank)) && check_move_free(i,j,k,l,-1,s,0)) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count);}
-                        else if (((proc_neighbors(rank,6) != rank)) && (!proc_neg_y_neighbors(0, 1, (size_t)(new_j+1), (size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count);}
+                        else if (((proc_neighbors(rank,6) == rank)) && check_move_free(i,j,k,l,-1,s,0)) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
+                        }
+                        else if (((proc_neighbors(rank,6) != rank)) && (!proc_neg_y_neighbors(0, 1, (size_t)(new_j+1), (size_t)(new_l)))) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
+                        }
                     }
 
                     else if ((i == 1) && (k == (sublattice_dim[1] - 1)) && (diag_directions[s][1] == 1)) {/*communicate with proc to +y direction*/
                         
                         if ((j == ((sublattice_dim[0] - 1))) && (diag_directions[s][0] == 1)) {
                             /*check neighbor +x,+y array */
-                            if ((proc_neighbors(rank,1) == rank) && check_move_free(i,j,k,l,1,s,1)) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count);}
-                            else if (((proc_neighbors(rank,1) != rank)) && (!(proc_pos_y_neighbors(0, 0, (size_t)(y_dims[2]-1), (size_t)(new_l))))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count);}
+                            if ((proc_neighbors(rank,1) == rank) && check_move_free(i,j,k,l,1,s,1)) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
+                            }
+                            else if (((proc_neighbors(rank,1) != rank)) && (!(proc_pos_y_neighbors(0, 0, (size_t)(y_dims[2]-1), (size_t)(new_l))))) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
+                            }
                         }
                         else {
                             /*check neighbor +y array */
-                            if ((proc_neighbors(rank,2) == rank) && check_move_free(i,j,k,l,1,s,1)) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count);}
-                            else if ((proc_neighbors(rank,2) != rank) && (!proc_pos_y_neighbors(0, 0, (size_t)(new_j), (size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count);}
+                            if ((proc_neighbors(rank,2) == rank) && check_move_free(i,j,k,l,1,s,1)) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
+                            }
+                            else if ((proc_neighbors(rank,2) != rank) && (!proc_pos_y_neighbors(0, 0, (size_t)(new_j), (size_t)(new_l)))) {
+                                NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                                curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
+                            }
                         }
                     }
 
                     else {
                         if ((i == 0) && (vacancies(1, (((j - diag_directions[s][0]) % sublattice_dim[0] + sublattice_dim[0]) % sublattice_dim[0]), (((k - diag_directions[s][1]) % sublattice_dim[1] + sublattice_dim[1]) % sublattice_dim[1]), (((l - diag_directions[s][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2])) == 0)) {
                             // checking that vertex site -> bc site move has new site occupied by atom
-                            curr_move_num = add_move(1,j,k,l,curr_move_num,-1,s,idx,0,NN_count);
+                            NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                            curr_move_num = add_move(1,j,k,l,curr_move_num,-1,s,idx,0,NN_count, NN_newsite);
                         }
                         else if ((i == 1) && (vacancies(0, (((j + diag_directions[s][0]) % sublattice_dim[0] + sublattice_dim[0]) % sublattice_dim[0]), (((k + diag_directions[s][1]) % sublattice_dim[1] + sublattice_dim[1]) % sublattice_dim[1]), (((l + diag_directions[s][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2])) == 0)) {
                             // checking that bc site -> vertex site move has new site occupied by atom
-                            curr_move_num = add_move(0,j,k,l,curr_move_num,1,s,idx,1,NN_count);
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);
+                            curr_move_num = add_move(0,j,k,l,curr_move_num,1,s,idx,1,NN_count, NN_newsite);
                         }
                     }
                 }
@@ -462,26 +684,49 @@ class Lattice {
                     else if ((l == (int)(sublattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
 
                     else if ((j == 0) && (edge_directions[s][0] == -1)) {/*communicate with proc to -x direction*/
-                        if ((proc_neighbors(rank,4) == rank) && check_move_free(i,j,k,l,1,s,(i+2))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);}       
-                        else if ((proc_neighbors(rank,4) != rank) && !(proc_neg_x_neighbors(0, i, (size_t)(new_k+1),(size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);}                    
+                        if ((proc_neighbors(rank,4) == rank) && check_move_free(i,j,k,l,1,s,(i+2))) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, (i+2));
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
+                        }       
+                        else if ((proc_neighbors(rank,4) != rank) && !(proc_neg_x_neighbors(0, i, (size_t)(new_k+1),(size_t)(new_l)))) {
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
+                        }                    
                     }
                     else if ((j == (sublattice_dim[0] - 1)) && (edge_directions[s][0] == 1))  {/*communicate with proc to +x direction*/
-                        if ((proc_neighbors(rank,0) == rank) && check_move_free(i,j,k,l,1,s,(i+2))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);}
-                        else if ((proc_neighbors(rank,0) != rank) && !(proc_pos_x_neighbors(0, i, (size_t)(new_k),(size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);}                    
+                        if ((proc_neighbors(rank,0) == rank) && check_move_free(i,j,k,l,1,s,(i+2))) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, (i+2));
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
+                        }
+                        else if ((proc_neighbors(rank,0) != rank) && !(proc_pos_x_neighbors(0, i, (size_t)(new_k),(size_t)(new_l)))) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, (i+2));
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
+                        }                    
                     }
                     else if ((k == 0) && (edge_directions[s][1] == -1)) {/*communicate with proc to -y direction*/
-                        if ((proc_neighbors(rank,6) == rank) && check_move_free(i,j,k,l,1,s,(i+2))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);}       
-                        if ((proc_neighbors(rank,6) != rank) && !(proc_neg_y_neighbors(0, i, (size_t)(new_j+1),(size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);}                    
+                        if ((proc_neighbors(rank,6) == rank) && check_move_free(i,j,k,l,1,s,(i+2))) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, (i+2));
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
+                        }       
+                        if ((proc_neighbors(rank,6) != rank) && !(proc_neg_y_neighbors(0, i, (size_t)(new_j+1),(size_t)(new_l)))) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, (i+2));
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
+                        }                    
                     }
                     else if ((k == (sublattice_dim[1] - 1)) && (edge_directions[s][1] == 1)) {/*communicate with proc to +y direction*/
-                        if ((proc_neighbors(rank,2) == rank) && check_move_free(i,j,k,l,1,s,(i+2))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);}     
-                        if ((proc_neighbors(rank,2) != rank) && !(proc_pos_y_neighbors(0, i, (size_t)(new_j),(size_t)(new_l)))) {curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);}                    
+                        if ((proc_neighbors(rank,2) == rank) && check_move_free(i,j,k,l,1,s,(i+2))) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, (i+2));
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
+                        }     
+                        if ((proc_neighbors(rank,2) != rank) && !(proc_pos_y_neighbors(0, i, (size_t)(new_j),(size_t)(new_l)))) {
+                            NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, (i+2));
+                            curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
+                        }                    
                     }
                     else if (vacancies(i, (((j + edge_directions[s][0]) % sublattice_dim[0] + sublattice_dim[0]) % sublattice_dim[0]), 
                         (((k + edge_directions[s][1]) % sublattice_dim[1] + sublattice_dim[1]) % sublattice_dim[1]), 
                         (((l + edge_directions[s][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2])) == 0) {
                         // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
-                        curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count);
+                        curr_move_num = add_move(i,j,k,l,curr_move_num,1,s,idx,(i+2),NN_count, NN_newsite);
                     }
                 }
             }
@@ -495,6 +740,7 @@ class Lattice {
             moves_lattice.reshape(num_of_moves, 1, rank);
 
         }
+
 
         /**
         * @brief Determines the rate constant corresponding to the nearest neighbor (NN) encoding
@@ -600,21 +846,41 @@ class Lattice {
                     std::cout << "ERROR: invalid directional bias" << "\n";
                     exit(0);
                 }
-                
-                if ((lattice == 0) || (lattice == 1)) {
-                    if (LR_idx == 1) {rate = regionrates_111_L[(reg_id-1)][idx];}
-                    else if (LR_idx == 0) {rate = regionrates_111_R[(reg_id-1)][idx];}
-                    
+
+                if ((lattice == regions[(reg_id-1)]->interface_i) && 
+                        (regions[(reg_id-1)]->interface) && (shift[regions[(reg_id-1)]->interface_dim] != 0)) {
+                    rate = regions[(reg_id-1)]->interface_100_rate;
                 }
-                else if ((lattice == 2) || (lattice == 3)) {
-                    if (LR_idx == 1) {rate = regionrates_100_L[(reg_id-1)][idx];}
-                    else if (LR_idx == 0) {rate = regionrates_100_R[(reg_id-1)][idx];}
-                    else if (LR_idx == -1) {rate = ratecatalog_100[0][idx];}
+                else if (regions[(reg_id-1)]->random) {
+                    if ( regions[(reg_id-1)]->get_rate(coord[0], coord[1], coord[2], coord[3], LR_idx) == -1) rate = -1;
+                    
+                    else if ((curr_NN >= void_threshold) && (new_NN < void_threshold)) { 
+                        rate = void_gb_diss_barrier; 
+                    }  
+                    else {
+                        if (LR_idx == 1) rate = regions[(reg_id-1)]->get_rate(coord[0], coord[1], coord[2], coord[3], LR_idx);
+                        if (LR_idx == 0) rate = regions[(reg_id-1)]->get_rate(coord[0], coord[1], coord[2], coord[3], LR_idx);
+                    }
                 }
                 else {
-                    std::string str_output = "Error: invalid lattice type in search_catalog()";
-                    printf("%s", str_output.c_str());
-                    throw std::exception();
+                    if ((curr_NN >= void_threshold) && (new_NN < void_threshold)) { 
+                        rate = void_gb_diss_barrier; 
+                    }  
+                    else if ((lattice == 0) || (lattice == 1)) {
+                        if (LR_idx == 1) {rate = regionrates_111_L[(reg_id-1)][idx];}
+                        else if (LR_idx == 0) {rate = regionrates_111_R[(reg_id-1)][idx];}                        
+                    }
+                    
+                    else if ((lattice == 2) || (lattice == 3)) {
+                        if (LR_idx == 1) {rate = regionrates_100_L[(reg_id-1)][idx];}
+                        else if (LR_idx == 0) {rate = regionrates_100_R[(reg_id-1)][idx];}
+                        else if (LR_idx == -1) {rate = ratecatalog_100[0][idx];}
+                    }
+                    else {
+                        std::string str_output = "Error: invalid lattice type in search_catalog()";
+                        printf("%s", str_output.c_str());
+                        throw std::exception();
+                    }
                 }
             }            
             else {
@@ -635,9 +901,13 @@ class Lattice {
                     if (shift[2] == 1) {LR_idx = 0;}
                     else {LR_idx = 1;}
                 }
-                // in case of no pre-defined region, use bulk rate constants
-                if ((lattice == 1) || (lattice == 0)) {rate = ratecatalog_111[LR_idx][idx];}
-                else if ((lattice == 2) || (lattice == 3)) {rate = ratecatalog_100[0][idx];}
+
+                if ((curr_NN >= void_threshold) && (new_NN < void_threshold)) { rate = void_barrier; }  
+                else {
+                    // in case of no pre-defined region, use bulk rate constants
+                    if ((lattice == 1) || (lattice == 0)) {rate = ratecatalog_111[LR_idx][idx];}
+                    else if ((lattice == 2) || (lattice == 3)) {rate = ratecatalog_100[0][idx];}
+                }
             }
             
             return rate;
@@ -3939,9 +4209,13 @@ Region* add_region(std::vector<std::string> info) {
     std::cout << "adding region \n";
     int id = std::stoi(tokenizer(info[0], ":")[0]); // region id number
     std::vector< std::vector<int> > params = vect_create_2D(2,3);
-    std::string reg_type = info[1]; // region type
-    std::string bias = info[2]; // region type
-
+    std::vector<double> rates(2);
+    std::vector<double> distribution(4,1);
+    std::vector<int> interface(4);
+    std::string reg_type = info.at(1); // region type
+    std::string bias = info.at(2); //bias direction of region
+    bool random = false; 
+    double interface_terrace_rate = 0;
 
     if (info[1] == "GB") {
         // case of grain boundary region
@@ -3964,9 +4238,56 @@ Region* add_region(std::vector<std::string> info) {
 
         params[0][2] = std::stoi(tokenizer(info[7], ":")[1]);
         params[1][2] = std::stoi(tokenizer(info[8], ":")[1]);
-    }
         
-    Region* new_region = new Region(id, reg_type, bias, params);
+        if (info.at(9) == "rate_neg") {
+            rates[0] = std::stod(info.at(10));
+            if (info.at(11) == "rate_pos") {
+                rates[1] = std::stod(info.at(12));
+            }
+        }
+        else if (info.at(9) == "rate_pos") {
+            rates[1] = std::stod(info.at(10));
+            if (info.at(11) == "rate_neg") {
+                rates[0] = std::stod(info.at(12));
+            }
+        }
+    }
+    std::cout << "post block \n";
+
+    if (info.size() > 13) { 
+        if (info.at(13) == "RANDOM") {
+            std::cout << "RANDOM\n";
+            distribution[0] = std::stod(info.at(14));
+            distribution[1] = std::stod(info.at(15));
+            distribution[2] = std::stod(info.at(16));
+            distribution[3] = std::stod(info.at(17));
+            
+            random = true;
+        } 
+        else if (info.at(13) == "INTERFACE") {
+            std::cout << "INTERFACE\n";
+            interface[0] = 1;
+            interface[1] = std::stod(info.at(14));
+            interface[2] = std::stod(info.at(15));
+            interface[3] = std::stod(info.at(16));
+            interface_terrace_rate = std::stod(info.at(17));
+        }
+
+        
+    } 
+    std::cout << "pre region \n";
+
+    Region* new_region = new Region(id, reg_type, bias, params, distribution, random, rates, interface, interface_terrace_rate);
+
+    // generating random barriers according to bounds if RANDOM tag
+    //included in region description
+    if (info.size() > 9) { 
+        if (info.at(9) == "RANDOM") {
+            //new_region->random_blocking();
+            new_region->random_barrier_assigner(rates);
+        }
+    }
+
     return new_region;
 }
 
@@ -4216,14 +4537,75 @@ std::vector<int> dims, int num_regions, std::string region_infile) {
     return returnval;
 }
 
-/*
-wrapper function for:
-- reading input files
-- populating vacancy, bc_site, vertex_site, and region_site FourDArr data structures
-corresponding to initial configuration of simulation
--  creating region objects 
-- creating rate catalog for bulk & pre-defined regions
-*/
+/**
+ * @brief Reads miscellaneous rates from input lines and extracts relevant rate values.
+ *
+ * This function parses an input file's lines to extract rate values associated with specific labels. 
+ * It processes numeric values and maps them to predefined rate indices.
+ *
+ * @param read_idx The starting index in the lines vector from where reading begins.
+ * @param lines A vector of strings representing lines from an input file.
+ * @return A tuple containing the updated read index and a vector of extracted rates.
+ */
+std::tuple< int, std::vector<double> > read_misc_rates(int read_idx, std::vector<std::string> lines) {
+    
+    std::cout << "read_misc_rates() \n";
+    std::vector<double> rates(7);
+    std::vector<std::string> rate_info;
+    bool idx_found = false;
+    int rate_idx = 0; 
+    std::string curr_line = lines[read_idx];
+
+    while (curr_line.find("rates end") == std::string::npos) {
+        
+        rate_info = tokenizer(lines[read_idx], " ");
+
+        for (int i=0; i<(int)rate_info.size(); i++) {
+
+            if ((is_numeric_or_scinotation(rate_info[i])) && (idx_found)) {
+                rates[rate_idx] = std::stod(rate_info[i]);
+                idx_found = false;
+            }
+            else if ((!is_numeric_or_scinotation(rate_info[i])) && (!idx_found)) {
+                
+                if (rate_info[i] == "diag") { rate_idx = 0; }
+                else if (rate_info[i] == "lateral") { rate_idx = 1; }
+                else if (rate_info[i] == "void_threshold") { rate_idx = 2; }
+                else if (rate_info[i] == "void_rate") { rate_idx = 3; }
+                else if (rate_info[i] == "terrace_rate_111") { rate_idx = 4; }
+                else if (rate_info[i] == "terrace_rate_100") { rate_idx = 5; }
+                else if (rate_info[i] == "void_gb_diss_rate") { rate_idx = 6; }
+                idx_found = true;
+            }
+            else {
+                std::cout << "ERROR: mismatch in order of rates and labels \n" << "\n";
+                exit(0);
+            }
+        }  
+
+        read_idx ++;
+        curr_line = lines[read_idx];     
+    }
+
+    std::tuple< int, std::vector<double> > tuple_out(read_idx, rates);
+    return tuple_out;
+}
+
+/**
+ * @brief Populates a Lattice object by reading input files and initializing necessary data structures.
+ *
+ * This function performs the following tasks:
+ * - Reads the input file to extract lattice dimensions, atomic types, and other necessary information.
+ * - Parses and initializes vacancy, boundary condition sites, vertex sites, and region site FourDArr data structures.
+ * - Reads and processes region-related data, initializing region objects.
+ * - Reads and assigns rate catalogs for bulk and predefined regions.
+ * - Initializes a Lattice object with extracted data and assigns region-specific rates.
+ *
+ * @param[in] infile_name Path to the input file containing lattice configuration.
+ * @param[in] catalogfile_name Path to the rate catalog file for bulk and predefined regions.
+ * @param[in] region_infile Path to the region file containing region-specific information.
+ * @return A pointer to the populated Lattice object.
+ */
 Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, double vertex_rate, double edge_rate, 
 std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::vector<std::vector<int>> chunk_bounds, int rank, std::vector<int> procs) {
 

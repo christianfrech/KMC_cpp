@@ -202,16 +202,16 @@ class Lattice {
                 if (lattice == 2) { direc_sign_NN = 1; }
                 else if (lattice == 3) { direc_sign_NN = 1; }
                 i1 = i;
-                i2 = (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
-                i3 = (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
-                i4 = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]); 
+                i2 = (((j + edge_directions[s][0]) % sublattice_dim[0] + sublattice_dim[0]) % sublattice_dim[0]);
+                i3 = (((k + edge_directions[s][1]) % sublattice_dim[1] + sublattice_dim[1]) % sublattice_dim[1]);
+                i4 = (((l + edge_directions[s][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2]); 
             }
             else if ((lattice == 0) || (lattice == 1)) {
                 if (lattice == 0) { i1 = 1; direc_sign_NN =  1; }
                 else if (lattice == 1) { i1 = 0; direc_sign_NN = -1; }
-                i2 = (((j + direc_sign * diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
-                i3 = (((k + direc_sign * diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
-                i4 = (((l + direc_sign * diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                i2 = (((j + direc_sign * diag_directions[s][0]) % sublattice_dim[0] + sublattice_dim[0]) % sublattice_dim[0]);
+                i3 = (((k + direc_sign * diag_directions[s][1]) % sublattice_dim[1] + sublattice_dim[1]) % sublattice_dim[1]);
+                i4 = (((l + direc_sign * diag_directions[s][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2]);
             }
 
             //std::cout << " i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
@@ -219,9 +219,9 @@ class Lattice {
             int NN_count = 0;
             for (int s2=0; s2 < (int)diag_directions.size(); s2++) {
                 i1_NN = !i1;
-                i2_NN = (((i2 + direc_sign_NN * diag_directions[s2][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
-                i3_NN = (((i3 + direc_sign_NN * diag_directions[s2][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
-                i4_NN = (((i4 + direc_sign_NN * diag_directions[s2][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                i2_NN = (((i2 + direc_sign_NN * diag_directions[s2][0]) % sublattice_dim[0] + sublattice_dim[0]) % sublattice_dim[0]);
+                i3_NN = (((i3 + direc_sign_NN * diag_directions[s2][1]) % sublattice_dim[1] + sublattice_dim[1]) % sublattice_dim[1]);
+                i4_NN = (((i4 + direc_sign_NN * diag_directions[s2][2]) % sublattice_dim[2] + sublattice_dim[2]) % sublattice_dim[2]);
 
                 /*
                 if (i == 0) {
@@ -237,9 +237,9 @@ class Lattice {
                 */
 
                 if (((lattice == 0) || (lattice == 1)) && (i4 == 0) && (i1 == 0) && (diag_directions[s2][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
-                else if (((lattice == 0) || (lattice == 1)) && (i4 == (int)(lattice_dim[2]-1)) && (i1 == 1) && (diag_directions[s2][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                else if (((lattice == 0) || (lattice == 1)) && (i4 == (int)(sublattice_dim[2]-1)) && (i1 == 1) && (diag_directions[s2][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
                 else if (((lattice == 2) || (lattice == 3)) && (i4 == 0) && (edge_directions[s][2] == -1)) {}  
-                else if (((lattice == 2) || (lattice == 3)) && (i4 == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
+                else if (((lattice == 2) || (lattice == 3)) && (i4 == (int)(sublattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
                 else {
                     //std::cout << " i1_NN: " << i1_NN << " i2_NN: " << i2_NN << " i3_NN: " << i3_NN << " i4_NN: " << i4_NN << "\n";
                     if ((i1_NN == i) && (i2_NN == j) && (i3_NN == k) && (i4_NN == l)) {}
@@ -3267,7 +3267,7 @@ class Lattice {
         * @return A structure containing the results of the KMC simulation.
         */
         // TO CONNECT TO VNC: ssh -f -N -L xxxx:localhost:yyyy cfrech@ls6.tacc.utexas.edu
-        lattice_return_struct new_kmc_iterator(double time_lim, std::chrono::system_clock::time_point start, std::string folder, int iteration, int rates_i, int last_tick, double last_time) {
+        lattice_return_struct new_kmc_iterator(double time_lim, std::chrono::system_clock::time_point start, std::string folder, int iteration, int last_tick, double last_time) {
             fprintf(stdout, "%s", "beginning kmc iterations \n\n"); 
 
             // INITIALIZING VARIABLES PRIOR TO BEGINNING FIRST KMC STEP //
@@ -4606,8 +4606,8 @@ std::tuple< int, std::vector<double> > read_misc_rates(int read_idx, std::vector
  * @param[in] region_infile Path to the region file containing region-specific information.
  * @return A pointer to the populated Lattice object.
  */
-Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, double vertex_rate, double edge_rate, 
-std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::vector<std::vector<int>> chunk_bounds, int rank, std::vector<int> procs) {
+Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name, std::string region_infile, 
+std::vector<int> total_dims, std::vector<std::vector<int>> chunk_bounds, int rank, std::vector<int> procs) {
 
     std::fstream in_file;
     in_file.open(infile_name);
@@ -5052,11 +5052,11 @@ std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::ve
         temp_vec = bin_m_zeros(8, i, (int)a_type_values.size());
         diag_configs.insert(diag_configs.end(), temp_vec.begin(), temp_vec.end() );
         if (i==0) {
-            temp_vec_2D = vect_create_2D_float(2, NCR(8,i), vertex_rate);
+            temp_vec_2D = vect_create_2D_float(2, NCR(8,i), misc_rates[0]);
             diag_E = temp_vec_2D;
         }
         else {
-            temp_vec_2D = vect_create_2D_float(2, NCR(8,i), vertex_rate);
+            temp_vec_2D = vect_create_2D_float(2, NCR(8,i), misc_rates[0]);
             diag_E[0].insert(diag_E[0].end(), temp_vec_2D[0].begin(), temp_vec_2D[0].end());
             diag_E[1].insert(diag_E[1].end(), temp_vec_2D[1].begin(), temp_vec_2D[1].end());
         }
@@ -5076,11 +5076,11 @@ std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::ve
         temp_vec = bin_m_zeros(14, i, (int)a_type_values.size());
         lateral_configs.insert(lateral_configs.end(), temp_vec.begin(), temp_vec.end());
         if (i==0) {
-            temp_vec_2D = vect_create_2D_float(2, NCR(14,i), edge_rate);
+            temp_vec_2D = vect_create_2D_float(2, NCR(14,i), misc_rates[1]);
             lateral_E = temp_vec_2D;
         }
         else {
-            temp_vec_2D = vect_create_2D_float(2, NCR(14,i), edge_rate);
+            temp_vec_2D = vect_create_2D_float(2, NCR(14,i), misc_rates[1]);
             lateral_E[0].insert(lateral_E[0].end(), temp_vec_2D[0].begin(), temp_vec_2D[0].end());
             lateral_E[1].insert(lateral_E[1].end(), temp_vec_2D[1].begin(), temp_vec_2D[1].end());
         }
@@ -5192,6 +5192,8 @@ std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::ve
             }
         }
     }
+
+    new_lattice->assign_region_rates_wrapper(temp_regions, misc_rates);
     
     new_lattice->configs_111 = configs_111;
     new_lattice->configs_100 = configs_100;
@@ -5209,27 +5211,6 @@ std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::ve
     for (size_t i=0; i<rows; i++) {
         for (size_t j=0; j<cols; j++) {
             new_lattice->ratecatalog_100(i,j) = (*temp_100_catalog)(i,j);
-        }
-    }
-    
-    rows = new_lattice->regionrates_100_L.rows();
-    cols = new_lattice->regionrates_100_L.cols();
-    for (size_t i=0; i<rows; i++) {
-        for (size_t j=0; j<cols; j++) {
-            new_lattice->regionrates_100_L(i,j) = 1e-10;
-            new_lattice->regionrates_100_R(i,j) = 1e-10 ;
-        }
-    }
-
-    rows = new_lattice->regionrates_111_L.rows();
-    cols = new_lattice->regionrates_111_L.cols();
-    for (size_t i=0; i<rows; i++) {
-        std::cout << i << "\n";
-        std::cout << reg_rates[i][0] << "\n";
-        std::cout << reg_rates[i][1] << "\n";
-        for (size_t j=0; j<cols; j++) {
-            new_lattice->regionrates_111_L(i,j) = reg_rates[i][0];
-            new_lattice->regionrates_111_R(i,j) = reg_rates[i][1];
         }
     }
 
@@ -5252,10 +5233,12 @@ std::vector<std::vector<double>> reg_rates, std::vector<int> total_dims, std::ve
     std::cout << "rank: " << rank << " nonzero_vacs: \n";
     nonzero_vacs.print();
     
-    new_lattice->proc_neighbors = temp_proc_neighbors;
-    
-    new_lattice->void_threshold = 3;
-    new_lattice->void_barrier = 5.06e7;
+    new_lattice->proc_neighbors = temp_proc_neighbors;    
+    new_lattice->void_threshold = misc_rates[2];
+    new_lattice->void_barrier = misc_rates[3];
+    new_lattice->terrace_barrier_111 = misc_rates[4];
+    new_lattice->terrace_barrier_100 = misc_rates[5];
+    new_lattice->void_gb_diss_barrier = misc_rates[6];
 
 
     delete temp_111_catalog;

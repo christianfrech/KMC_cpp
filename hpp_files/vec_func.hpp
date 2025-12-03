@@ -277,14 +277,14 @@ std::vector<int> arange(int start, int end, int step) {
 // to find the position
 // where item should be inserted
 // in a[low..high]
-int searchsorted_recursive(std::vector<double>* a, double item, int low, int high) {
-    if (high <= low) { return (item > (*a)[low]) ? (low + 1) : low; }
+int searchsorted_recursive(std::vector<double>& a, double item, int low, int high) {
+    if (high <= low) { return (item > (a)[low]) ? (low + 1) : low; }
     
     int mid = (low + high) / 2;
  
-    if (item == (*a)[mid]) { return (mid + 1); }
+    if (item == (a)[mid]) { return (mid + 1); }
  
-    if (item > (*a)[mid]) {return searchsorted_recursive(a, item, (mid + 1), high); }
+    if (item > (a)[mid]) {return searchsorted_recursive(a, item, (mid + 1), high); }
     
     return searchsorted_recursive(a, item, low, (mid - 1));
 }

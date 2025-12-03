@@ -5,7 +5,7 @@
 #include <vector>
 #include <cstdlib>
 #include <fstream>
-
+#include <set>
 
 
 void print_3Dvector(std::vector< std::vector< std::vector<double> > > vec) {
@@ -114,4 +114,22 @@ void print_1Dvector(std::vector<size_t> &vec) {
         std::cout << vec[n] << " ";
     }
     std::cout << "] \n\n";
+}
+
+
+void print_set(std::set< std::vector<int> > set_in)
+{
+
+    std::cout << "{ ";
+    for (std::vector<int> const& vec : set_in)
+
+    {
+        int N = (int)vec.size();
+        std::cout << "[ ";
+        for (int n=0; n<N; n++) {
+            std::cout << vec[n] << " ";
+        }
+        std::cout << "]  ";
+    }
+    std::cout << " }\n";
 }

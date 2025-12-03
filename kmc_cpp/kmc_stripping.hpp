@@ -837,7 +837,7 @@ class Lattice {
                             rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
                             //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
                                 
-                            //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
+                            // std::cout << "diag curr_move_num: " << curr_move_num << " old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
                     
                             if (rate == void_gb_diss_barrier) void_moves ++;
                             move_count ++;
@@ -877,7 +877,7 @@ class Lattice {
                             rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
                             //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
                                 
-                            //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
+                            // std::cout << "diag curr_move_num: " << curr_move_num << " old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
                     
                             if (rate == void_gb_diss_barrier) void_moves ++;
                             
@@ -990,51 +990,52 @@ class Lattice {
                 // finding all moves along the {100} family of vectors
                 for (int s=0; s < (int)edge_directions.size(); s++) {
                     if (dim_periodic[2]) {
-                        // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
-                        moves_shifts[curr_move_num][0] = edge_directions[s][0];
-                        moves_shifts[curr_move_num][1] = edge_directions[s][1];
-                        moves_shifts[curr_move_num][2] = edge_directions[s][2];
-                        moves_coords[curr_move_num][0] = i;
-                        moves_coords[curr_move_num][1] = (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
-                        moves_coords[curr_move_num][2] = (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
-                        moves_coords[curr_move_num][3] = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
-                        moves_vacs[curr_move_num][0] = idx; 
-                        
-                        if (i == 0) {
-                            moves_lattice[curr_move_num][0] = 2;
-                            //NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 2);
-                            NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
-                            //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
-                        }
-                        else if (i == 1) {
-                            moves_lattice[curr_move_num][0] = 3;
-                            //NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 3);
-                            NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
-                            //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
-                        }    
-                        // getting rate corresponding to move
-                        //NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
-                        //std::cout << "lattice 2 or 3 \n";
-                        rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
-                        //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
+                        if (vacancies(i, (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0) {
+                            // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
+                            moves_shifts[curr_move_num][0] = edge_directions[s][0];
+                            moves_shifts[curr_move_num][1] = edge_directions[s][1];
+                            moves_shifts[curr_move_num][2] = edge_directions[s][2];
+                            moves_coords[curr_move_num][0] = i;
+                            moves_coords[curr_move_num][1] = (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                            moves_coords[curr_move_num][2] = (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                            moves_coords[curr_move_num][3] = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                            moves_vacs[curr_move_num][0] = idx; 
                             
-                        //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
-                    
-                        if (rate == void_gb_diss_barrier) void_moves ++;
-                        move_count ++;
-
-                        if (rate == -1) {
-                            std::cout << "rollback_moves\n";
-                            curr_move_num --;}
-                        else { 
-                            if (curr_move_num == 0) {rate_cumsum[0] = rate;}
-                            else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
-                        }
-                        //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
+                            if (i == 0) {
+                                moves_lattice[curr_move_num][0] = 2;
+                                //NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 2);
+                                NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                            }
+                            else if (i == 1) {
+                                moves_lattice[curr_move_num][0] = 3;
+                                //NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 3);
+                                NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                            }    
+                            // getting rate corresponding to move
+                            //NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                            //std::cout << "lattice 2 or 3 \n";
+                            rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
+                            //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
+                                
+                            // std::cout << "edge curr_move_num: " << curr_move_num << " old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
                         
-                        curr_move_num ++;
-                        moves[1] ++;
+                            if (rate == void_gb_diss_barrier) void_moves ++;
+                            move_count ++;
 
+                            if (rate == -1) {
+                                std::cout << "rollback_moves\n";
+                                curr_move_num --;}
+                            else { 
+                                if (curr_move_num == 0) {rate_cumsum[0] = rate;}
+                                else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
+                            }
+                            //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
+                            
+                            curr_move_num ++;
+                            moves[1] ++;
+                        }
                     }
                     else {
                         if ((l == 0) && (edge_directions[s][2] == -1)) {}  
@@ -1080,7 +1081,6 @@ class Lattice {
                                 if (curr_move_num == 0) {rate_cumsum[0] = rate;}
                                 else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
                             }
-                            //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
                             
                             curr_move_num ++;
                             moves[1] ++;
@@ -1137,16 +1137,8 @@ class Lattice {
             } 
             */
 
-            
-            /*
-            std::cout << "test_i: " << test_i << "\n";
-            std::cout << "num of strip moves: " << (curr_move_num-strip_move_start) << "\n";
-            std::cout << "curr_move_num: " << (curr_move_num) << "\n";
-            std::cout << "rate_cumsum[-1]: " << rate_cumsum[(curr_move_num -1)] <<"\n";
-            std::cout << "rate_cumsum[-2]: " << rate_cumsum[(curr_move_num -2)] <<"\n";
-            */
-            std::cout << "bulk rate count: " << bulk_rate_count << "\n";
-            std::cout << "interface rate count: " << interface_rate_count << "\n";
+            //std::cout << "bulk rate count: " << bulk_rate_count << "\n";
+            //std::cout << "interface rate count: " << interface_rate_count << "\n";
 
             last_bulk_count = bulk_rate_count;
             
@@ -1159,6 +1151,7 @@ class Lattice {
             moves_coords.reshape(num_of_moves, 4);
             moves_shifts.reshape(num_of_moves, 3);
             moves_lattice.reshape(num_of_moves, 1);
+            // exit(0);
                 
         }
         
@@ -2284,16 +2277,17 @@ class Lattice {
             rate = 5e12 * std::exp( -migration_E * (1 / (8.6173e-5 * 300)));
             */
 
-            
-
             if (neighbor_deltaE >= 0) { rate = 5e12 * std::exp( -(neighbor_deltaE + barrier) * (1 / (8.6173e-5 * temperature)));  }
             else { rate = 5e12 * std::exp( -(barrier) * (1 / (8.6173e-5 * temperature))); }
-
 
             //system_energy += E_initial;
 
             //std::cout << "rate: " << rate << " delta_E_NN: " << delta_E_NN << " neighbor_deltaE: " << neighbor_deltaE << "\n";
-            //std::cout << "E_final: " << E_final << " E_initial: " << E_initial << " barrier: " << barrier << " delta_endpoints: " << delta_endpoints <<  "\n";
+            
+            // std::cout << "RATE TEST: " << 5e12 * std::exp( -(neighbor_deltaE + barrier) * (1 / (8.6173e-5 * temperature))) << "\n";
+            // std::cout << "exp arg TEST: " << -(neighbor_deltaE + barrier) * (1 / (8.6173e-5 * temperature)) << "\n";
+
+            //std::cout << "E_final: " << E_final << " E_initial: " << E_initial << " barrier: " << barrier << " delta_endpoints: " << delta_endpoints << " temp: " << temperature << "\n";
             
             //std::cout << "curr_NN: " << curr_NN << " new_NN: " << new_NN << "\n";
             
@@ -3034,11 +3028,11 @@ class Lattice {
             energy_cost = delta_E_init_to_final(old_loc_arr, moves_shifts[idx], moves_lattice[idx][0], last_currNN, last_newNN);
             total_cost += energy_cost;
 
-            std::cout << "temp_oldloc: [" << temp_oldloc[0] << " " << temp_oldloc[1] << " " << temp_oldloc[2] << " " << temp_oldloc[3] << "]\n";
-            std::cout << "temp_newloc: [" << temp_newloc[0] << " " << temp_newloc[1] << " " << temp_newloc[2] << " " << temp_newloc[3] << "]\n";
+            //std::cout << "temp_oldloc: [" << temp_oldloc[0] << " " << temp_oldloc[1] << " " << temp_oldloc[2] << " " << temp_oldloc[3] << "]\n";
+            //std::cout << "temp_newloc: [" << temp_newloc[0] << " " << temp_newloc[1] << " " << temp_newloc[2] << " " << //temp_newloc[3] << "]\n";
 
-            std::cout << "energy_cost: " << energy_cost << "\n";
-            std::cout << "total_cost: " << total_cost << "\n";
+            //std::cout << "energy_cost: " << energy_cost << "\n";
+            //std::cout << "total_cost: " << total_cost << "\n";
                         
 
             //std::cout << "temp_oldloc: [" << temp_oldloc[0] << " " << temp_oldloc[1] << " " << temp_oldloc[2] << " " << temp_oldloc[3] << "]\n";
@@ -3324,9 +3318,12 @@ class Lattice {
             // accessing random element into cumulative sum array, 
             // probability of access proportional to the value at that point
             int last_idx = (int)rate_cumsum.size() - 1;
+
+
             double rand_pos = rate_cumsum[last_idx] * random_double;
             int min_idx = searchsorted_recursive(rate_cumsum, rand_pos, 0, last_idx);
             
+            //std::cout << "last_idx: " << last_idx << " min_idx: " << min_idx << "\n";
             return min_idx;
         }
 
@@ -3378,13 +3375,13 @@ class Lattice {
             last_oldloc = {0,0,0,0};
             new_get_actions_Elandscape(0); // updating list of moves in system
 
-            std::cout << "system_energy: " << system_energy << "\n";
-            std::cout << "total_cost: " << total_cost << "\n";
-            std::cout << "system_energy - total_cost: " << system_energy - total_cost << "\n";
+            //std::cout << "system_energy: " << system_energy << "\n";
+            //std::cout << "total_cost: " << total_cost << "\n";
+            //std::cout << "system_energy - total_cost: " << system_energy - total_cost << "\n";
             //new_get_actions(0);
-            std::cout << "t: " << t << "\n";
-            std::cout << "rate_cumsum[-1]: " << rate_cumsum[((int)rate_cumsum.size() - 1)] << "\n";
-            std::cout << "timestep: " << timestep << "\n\n\n";
+            //std::cout << "t: " << t << "\n";
+            //std::cout << "rate_cumsum[-1]: " << rate_cumsum[((int)rate_cumsum.size() - 1)] << "\n";
+            //std::cout << "timestep: " << timestep << "\n\n\n";
             //print_1Dvector(rate_cumsum);
 
             only_vacancies = vacancies.nonzero();
@@ -3411,7 +3408,7 @@ class Lattice {
             std::cout << "adaptive_gb_id: " << adaptive_gb_id <<"\n";
 
             while (t < time_lim) {
-                std::cout << "t: " << t << "\n";
+                //std::cout << "t: " << t << "\n";
                 /*
                 std::cout << "move_ticks: " << move_ticks << "\n";
                 std::cout << "rate_cumsum.size: " << rate_cumsum.size() << "\n";
@@ -3457,12 +3454,12 @@ class Lattice {
                     std::cout << "fully out of write_to_file()\n";
                 }
 
-                last_rate_plus1 = rate_cumsum[(min_idx+1)] - rate_cumsum[(min_idx)];
-                last_rate = rate_cumsum[(min_idx)] - rate_cumsum[(min_idx-1)];
-                last_rate_minus1 = rate_cumsum[(min_idx-1)] - rate_cumsum[(min_idx-2)]; 
-                std::cout << "last_rate + 1: " << last_rate_plus1 << "\n";
-                std::cout << "last_rate: " << last_rate << "\n";
-                std::cout << "last_rate - 1: " << last_rate_minus1 << "\n";
+                //last_rate_plus1 = rate_cumsum[(min_idx+1)] - rate_cumsum[(min_idx)];
+                //last_rate = rate_cumsum[(min_idx)] - rate_cumsum[(min_idx-1)];
+                //last_rate_minus1 = rate_cumsum[(min_idx-1)] - rate_cumsum[(min_idx-2)]; 
+                //std::cout << "last_rate + 1: " << last_rate_plus1 << "\n";
+                //std::cout << "last_rate: " << last_rate << "\n";
+                //std::cout << "last_rate - 1: " << last_rate_minus1 << "\n";
 
                 end = std::chrono::system_clock::now(); 
                 elapsed_seconds = end-start; 
@@ -3533,9 +3530,9 @@ class Lattice {
 
                 new_get_actions_Elandscape(move_ticks);
 
-                std::cout << "system_energy: " << system_energy << "\n";
-                std::cout << "total_cost: " << total_cost << "\n";
-                std::cout << "system_energy - total_cost: " << system_energy - total_cost << "\n";
+                //std::cout << "system_energy: " << system_energy << "\n";
+                //std::cout << "total_cost: " << total_cost << "\n";
+                //std::cout << "system_energy - total_cost: " << system_energy - total_cost << "\n";
                 //new_get_actions(move_ticks);
                                 
                 //std::cout << "move_ticks: " << move_ticks << "  system_energy: " << system_energy << "\n";

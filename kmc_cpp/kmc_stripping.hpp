@@ -23,983 +23,6 @@
 #include "hpp_files/math_func.hpp"
 #include "hpp_files/vec_func.hpp"
 #include "hpp_files/str_func.hpp"
-#include "hpp_files/print_func.hpp"
-
-
-#define CEILING(x,y) ((x + y - 1) / y)
-
-/*! \brief A class for representing and manipulating matrices with variable dimension sizes
- * \tparam mat_type The type of elements to be stored in the matrix
- */
-template <class mat_type>
-class Matrix {
-    public:
-        class RowReference {
-            private:
-            size_t row_idx_;
-            Matrix<mat_type> &mat_;
-            
-            public:
-            RowReference(Matrix<mat_type> &mat, size_t row) : row_idx_(row), mat_(mat) {}
-            
-            mat_type& operator[] (size_t idx) {
-                return mat_(row_idx_, idx);
-            }
-        };
-        
-        /*! \brief Constructor for Matrix class
-            * \param [in] rows     The number of rows the matrix should have initially
-            * \param [in] cols     The number of columns the matrix should have initially
-            */
-        Matrix(size_t rows, size_t cols) : rows_(rows), cols_(cols), tot_size_(rows * cols), data_(rows * cols) {}
-        
-        /*! \brief Access matrix element
-        * \param [in] row      Row index of element
-        * \param [in] col      Column index of element
-        * \return Reference to matrix element
-        */
-        mat_type& operator() (size_t row, size_t col) {
-            return data_[cols_*row + col];
-        }
-        
-        /*! \brief Access matrix element
-        * \param [in] row      Row index of element
-        * \param [in] col      Column index of element
-        * \return matrix element
-        */
-        mat_type  operator() (size_t row, size_t col) const {
-            return data_[cols_ * row + col];
-        }
-        
-        /*! \brief Zero all matrix elements */
-        void zero() {
-            std::fill(data_.begin(), data_.end(), 0);
-        }
-        
-        /*! \brief Access matrix row
-        * \param [in] row      Row index
-        * \return pointer to 0th element in a row of a matrix
-        */
-        mat_type *operator[] (size_t row) {
-            return &data_[cols_ * row];
-        }
-        
-        /*! \brief Access matrix row
-        * \param [in] row      Row index
-        * \return pointer to 0th element in a row of a matrix
-        */
-        const mat_type *operator[] (size_t row) const {
-            return &data_[cols_ * row];
-        }
-        
-        /*! \brief Increase number of columns in the matrix
-        * Data are copied such that the first n[i] elements in each row remain the same before and after this operation
-        * \param [in] new_col      Desired number of columns in the enlarged matrix
-        * \param [in] n_keep       Number of elements to preserve in each row of the matrix (should have \p rows_ elements)
-        */
-        void enlarge_cols(size_t new_col, int *n_keep) {
-            if (new_col > cols_) {
-                size_t old_cols = cols_;
-                reshape(rows_, new_col);
-                
-                size_t row_idx;
-                for (row_idx = rows_; row_idx > 0; row_idx--) {
-                    auto begin = data_.begin();
-                    std::copy_backward(begin + (row_idx - 1) * old_cols, begin + (row_idx - 1) * old_cols + n_keep[row_idx - 1], begin + (row_idx - 1) * new_col + n_keep[row_idx - 1]);
-                }
-            }
-        }
-        
-        /*! \brief Increase number of columns in the matrix
-        * Data are copied such that the first n elements in each row remain the same before and after this operation
-        * \param [in] new_col      Desired number of columns in the enlarged matrix
-        * \param [in] n_keep       Number of elements to preserve in all rows of the matrix
-        */
-        void enlarge_cols(size_t new_col, int n_keep) {
-            if (new_col > cols_) {
-                size_t old_cols = cols_;
-                reshape(rows_, new_col);
-                
-                size_t row_idx;
-                for (row_idx = rows_; row_idx > 0; row_idx--) {
-                    auto begin = data_.begin();
-                    std::copy_backward(begin + (row_idx - 1) * old_cols, begin + (row_idx - 1) * old_cols + n_keep, begin + (row_idx - 1) * new_col + n_keep);
-                }
-            }
-        }
-
-        
-        /*! \brief Change the dimensions without moving any of the data
-        * \param [in] new_rows     Desired number of rows in the reshaped matrix
-        * \param [in] new_cols     Desired number of columns in the reshaped matrix
-        */
-        void reshape(size_t new_rows, size_t new_cols) {
-            size_t new_size = new_rows * new_cols;
-            if (new_size > tot_size_) {
-                tot_size_ = new_size;
-                data_.resize(tot_size_);
-            }
-            rows_ = new_rows;
-            cols_ = new_cols;
-        }
-        
-        /*! \return Current number of rows in matrix */
-        size_t rows() const {
-            return rows_;
-        }
-
-        /*! \return Current number of columns in matrix*/
-        size_t cols() const {
-            return cols_;
-        }
-        
-        /*! \return Pointer to the  data in the matrix*/
-        mat_type *data() const {
-            return (mat_type *) data_.data();
-        }
-        
-        void copy_from(Matrix<mat_type> &mat) {
-            std::copy(mat.data_.begin(), mat.data_.end(), data_.begin());
-        }
-        
-        void print() {
-            std::cout << "[ ";
-            for (int m=0; m<(int)rows_; m++) {
-                std::cout << "[ ";
-                for (int n=0; n<(int)cols_; n++) {
-                    std::cout << (*this)((size_t)m, (size_t)n)  << " ";
-                }
-                std::cout << "] ";
-                std::cout << "\n  ";
-            }
-            std::cout << "] \n\n";
-        }
-        
-    private:
-        size_t rows_, cols_, tot_size_;
-        std::vector<mat_type> data_;
-};
-
-
-/*! \brief A class for storing 4-D arrays of ints*/
-class FourDDoubleArr {
-public:
-    /*! \brief Constructor
-     * \param [in] len1 len2 len3 len4    Lengths of the 4 dimensions of the array
-     */
-
-    std::vector<size_t> size_vec;
-    std::vector<double> data_; ///< The data stored in the array
-
-    FourDDoubleArr(size_t len1, size_t len2, size_t len3, size_t len4)
-    : len1_(len1)
-    , len2_(len2)
-    , len3_(len3)
-    , len4_(len4)
-    , data_(len1 * len2 * len3 * len4)
-    {
-        //data_ = (double *)malloc(sizeof(double) * len1 * len2 * len3 * len4);
-        size_vec.push_back(len1);
-        size_vec.push_back(len2);
-        size_vec.push_back(len3);
-        size_vec.push_back(len4);
-    }
-    
-    /*! \brief Access an element of the 4-D array
-     * \param [in] i1 First index
-     * \param [in] i2 Second index
-     * \param [in] i3 Third index
-     * \param [in] i4 Fourth index
-     * \returns Reference to array element
-     */
-    double& operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
-        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
-    }
-    
-    double  operator() (size_t i1, size_t i2, size_t i3, size_t i4) const {
-        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
-    }
-    
-    /*
-    retrieve nonzero elements
-    */
-    std::vector< std::vector<int> > nonzero() {
-        int vec_size = (len1_*len2_*len3_*len4_)/8;
-        std::vector<std::vector<int>> vec_out(vec_size, std::vector<int>(4));
-
-        int elem = 0; 
-        for (int i1=0; i1<(int)len1_; i1++) {
-            for (int i2=0; i2<(int)len2_; i2++) {
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
-                            if (elem >= (vec_size-1)) {
-                                vec_out.resize(vec_size*2, std::vector<int>(4));
-                                vec_size = vec_size * 2;
-                            }
-                            vec_out[elem][0] = i1;
-                            vec_out[elem][1] = i2;
-                            vec_out[elem][2] = i3;
-                            vec_out[elem][3] = i4;
-                            elem ++;
-                        }
-                    }
-                }
-            }
-        } 
-        vec_out.resize(elem);
-        
-        return vec_out;
-    }
-
-    /*
-    print data field of a FourDArr object
-    */
-    void print_4Dvector() { 
-        std::cout << "\n[ ";
-        for (int i1=0; i1<(int)len1_; i1++) {
-            std::cout << "[ ";
-            for (int i2=0; i2<(int)len2_; i2++) {
-                std::cout << "[ ";
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    std::cout << "[ ";
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
-                    }
-                    std::cout << "] ";
-                    std::cout << "\n  ";
-                }
-                std::cout << "] ";
-                std::cout << "\n  ";
-            }
-            std::cout << "] ";
-            std::cout << "\n  ";
-        } 
-        std::cout << "] \n\n";
-    }
-
-    /*
-    retrieve elements to a 1D slice of a FourDArr object corresponding to coordinates input
-    */
-    std::vector<int> grab_idxs(std::vector< std::vector<int> > coords) {
-        std::vector<int> output;
-
-        for (int i=0; i<(int)coords.size(); i++) {
-            std::vector<int> coord = coords[i];
-            int w = coord[0];
-            int x = coord[1];
-            int y = coord[2];
-            int z = coord[3];
-
-            int value = (int)(*this)(w,x,y,z);
-            output.push_back(value);
-        }
-        return output;
-    }
-
-    /*
-    assign elements to a 1D slice of a FourDArr object corresponding to values input
-    */
-    void assign_idxs(std::vector< std::vector<int> > coords, std::vector<int> values) {
-        size_t w;
-        size_t x;
-        size_t y;
-        size_t z;
-        
-        
-
-        for (int i=0; i<(int)coords.size(); i++) {
-            std::vector<int> coord = coords[i];
-            w = (size_t)coord[0];
-            x = (size_t)coord[1];
-            y = (size_t)coord[2];
-            z = (size_t)coord[3];
-            (*this)(w,x,y,z) = values[i];
-        }
-    }
-
-    Matrix<double> nonzero_elems() {
-        int vec_size = (int)(len1_*len2_*len3_*len4_)/8;
-        Matrix<double> mat_out(vec_size, 5);
-        mat_out.zero();
-
-        int elem = 0; 
-        
-        for (int i1=0; i1<(int)len1_; i1++) {
-            for (int i2=0; i2<(int)len2_; i2++) {
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0 ) {
-
-                            if (elem >= (vec_size-1)) {
-                                mat_out.reshape(vec_size*2, 5);
-                                vec_size = vec_size * 2;
-                            }
-                            
-                            mat_out[elem][0] = i1;
-                            mat_out[elem][1] = i2;
-                            mat_out[elem][2] = i3;
-                            mat_out[elem][3] = i4;
-                            mat_out[elem][4] = (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4);
-                            elem ++;
-                        }
-                    }
-                }
-            }
-        } 
-        mat_out.reshape(elem, 5);
-        return mat_out;
-    }
-    
-    /*
-    set all elements in data field to zero
-    */
-    void zero() {
-        for (int i1=0; i1<len1_; i1++) {
-            for (int i2=0; i2<len2_; i2++) {
-                for (int i3=0; i3<len3_; i3++) {
-                    for (int i4=0; i4<len4_; i4++) {
-                        (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) = 0;
-                    }
-                }
-            }    
-        }
-    }
-
-private:
-    size_t len1_, len2_, len3_, len4_; ///< Dimensions of the array
-
-};
-
-class FourDBoolArr {
-    size_t len1_, len2_, len3_, len4_;
-    std::vector<uint8_t> data_;
-    
-    class BoolReference
-    {
-        private:
-            uint8_t & value_;
-            uint8_t mask_;
-            
-            void zero(void) noexcept { value_ &= ~(mask_); }
-            
-            void one(void) noexcept { value_ |= (mask_); }
-            
-            bool get() const noexcept { return !!(value_ & mask_); }
-            
-            void set(bool b) noexcept
-            {
-                if(b)
-                    one();
-                else
-                    zero();
-            }
-            
-        public:
-            BoolReference(uint8_t & value, uint8_t nbit)
-            : value_(value), mask_(uint8_t(0x1) << nbit)
-            { }
-
-            BoolReference(const BoolReference &ref): value_(ref.value_), mask_(ref.mask_) {}
-            
-            BoolReference & operator=(bool b) noexcept { set(b); return *this; }
-            
-            BoolReference & operator=(const BoolReference & br) noexcept { return *this = bool(br); }
-            
-            operator bool() const noexcept { return get(); }
-    };
-    
-public:
-    const std::tuple<size_t, size_t, size_t, size_t> size_tuple;
-
-    FourDBoolArr(size_t len1, size_t len2, size_t len3, size_t len4) :
-    len1_(len1), len2_(len2), len3_(len3), len4_(len4), data_(CEILING(len1 * len2 * len3 * len4, 8)), size_tuple(len1, len2, len3, len4) { }
-    
-    BoolReference operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
-        size_t flat_idx = i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4;
-        size_t coarse_idx = flat_idx / 8;
-        size_t fine_idx = flat_idx % 8;
-        BoolReference ref(data_[coarse_idx], fine_idx);
-        return ref;
-    }
-
-    /*
-    print elements of data field
-    */
-    void print_4Dvector() { 
-        std::cout << "\n[ ";
-        for (int i1=0; i1<(int)len1_; i1++) {
-            std::cout << "[ ";
-            for (int i2=0; i2<(int)len2_; i2++) {
-                std::cout << "[ ";
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    std::cout << "[ ";
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
-                    }
-                    std::cout << "] ";
-                    std::cout << "\n  ";
-                }
-                std::cout << "] ";
-                std::cout << "\n  ";
-            }
-            std::cout << "] ";
-            std::cout << "\n  ";
-        } 
-        std::cout << "] \n\n";
-    }
-    
-    /*
-    retrieve nonzero elements
-    */
-    std::vector< std::vector<int> > nonzero() {
-        int vec_size = (len1_*len2_*len3_*len4_)/8;
-        std::vector<std::vector<int>> vec_out(vec_size, std::vector<int>(4));
-
-        int elem = 0; 
-        for (int i1=0; i1<(int)len1_; i1++) {
-            for (int i2=0; i2<(int)len2_; i2++) {
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != false ) {
-                            if (elem >= (vec_size-1)) {
-                                vec_out.resize(vec_size*2, std::vector<int>(4));
-                                vec_size = vec_size * 2;
-                            }
-                            vec_out[elem][0] = i1;
-                            vec_out[elem][1] = i2;
-                            vec_out[elem][2] = i3;
-                            vec_out[elem][3] = i4;
-                            elem ++;
-                        }
-                    }
-                }
-            }
-        } 
-        vec_out.resize(elem);
-        
-        return vec_out;
-    }
-
-    
-};
-
-/*! \brief A class for storing 4-D arrays of ints*/
-class FourDArr {
-public:
-    /*! \brief Constructor
-     * \param [in] len1 len2 len3 len4    Lengths of the 4 dimensions of the array
-     */
-
-    const std::tuple<size_t, size_t, size_t, size_t> size_tuple;
-
-    FourDArr(size_t len1, size_t len2, size_t len3, size_t len4)
-    : size_tuple(len1, len2, len3, len4)
-    , len1_(len1)
-    , len2_(len2)
-    , len3_(len3)
-    , len4_(len4)
-    {
-        data_ = (int *)malloc(sizeof(int) * len1 * len2 * len3 * len4);
-    }
-    
-    /*! \brief Access an element of the 4-D array
-     * \param [in] i1 First index
-     * \param [in] i2 Second index
-     * \param [in] i3 Third index
-     * \param [in] i4 Fourth index
-     * \returns Reference to array element
-     */
-    int& operator() (size_t i1, size_t i2, size_t i3, size_t i4) {
-        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
-    }
-    
-    int  operator() (size_t i1, size_t i2, size_t i3, size_t i4) const {
-        return data_[i1 * len2_ * len3_ * len4_ + i2 * len3_ * len4_ + i3 * len4_ + i4];
-    }
-
-    /*! \brief Destructor*/
-    ~FourDArr() {
-        free(data_);
-    }
-    
-    FourDArr(const FourDArr& m) = delete;
-    
-    FourDArr& operator= (const FourDArr& m) = delete;
-    
-    /*! \returns pointer to 0th element in the array */
-    int *data() {
-        return data_;
-    }
-    /*
-    retrieve nonzero elements
-    */
-    std::vector< std::vector<int> > nonzero() {
-        int vec_size = (len1_*len2_*len3_*len4_)/8;
-        std::vector<std::vector<int>> vec_out(vec_size, std::vector<int>(4));
-
-        int elem = 0; 
-        for (int i1=0; i1<(int)len1_; i1++) {
-            for (int i2=0; i2<(int)len2_; i2++) {
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) !=0 ) {
-
-                            if (elem == (vec_size-2)) {
-                                vec_out.resize(vec_size*2, std::vector<int>(4));
-                                vec_size = vec_size * 2;
-                            }
-                            vec_out[elem][0] = i1;
-                            vec_out[elem][1] = i2;
-                            vec_out[elem][2] = i3;
-                            vec_out[elem][3] = i4;
-                            
-                            elem ++;
-                        }
-                    }
-                }
-            }
-        } 
-        vec_out.resize(elem);
-        
-        return vec_out;
-    }
-
-    /*
-    retrieve nonzero elements and values
-    */
-    std::vector< std::vector<int> > nonzero_with_values() {
-        int vec_size = (len1_*len2_*len3_*len4_)/8;
-        std::vector<std::vector<int>> vec_out(vec_size, std::vector<int>(5));
-
-        int elem = 0; 
-        for (int i1=0; i1<(int)len1_; i1++) {
-            for (int i2=0; i2<(int)len2_; i2++) {
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        if ( (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4) != 0 ) {
-                            if (elem >= (vec_size-1)) {
-                                vec_out.resize(vec_size*2, std::vector<int>(4));
-                                vec_size = vec_size * 2;
-                            }
-
-                            vec_out[elem][0] = i1;
-                            vec_out[elem][1] = i2;
-                            vec_out[elem][2] = i3;
-                            vec_out[elem][3] = i4;
-                            vec_out[elem][4] = (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4);
-                            elem ++;
-                        }
-                    }
-                }
-            }
-        } 
-        vec_out.resize(elem);
-        
-        return vec_out;
-    }
-
-    /*
-    print data field of a FourDArr object
-    */
-    void print_4Dvector() { 
-        std::cout << "\n[ ";
-        for (int i1=0; i1<(int)len1_; i1++) {
-            std::cout << "[ ";
-            for (int i2=0; i2<(int)len2_; i2++) {
-                std::cout << "[ ";
-                for (int i3=0; i3<(int)len3_; i3++) {
-                    std::cout << "[ ";
-                    for (int i4=0; i4<(int)len4_; i4++) {
-                        std::cout << (*this)((size_t)i1, (size_t)i2, (size_t)i3, (size_t)i4)  << " ";
-                    }
-                    std::cout << "] ";
-                    std::cout << "\n  ";
-                }
-                std::cout << "] ";
-                std::cout << "\n  ";
-            }
-            std::cout << "] ";
-            std::cout << "\n  ";
-        } 
-        std::cout << "] \n\n";
-    }
-
-    /*
-    retrieve elements to a 1D slice of a FourDArr object corresponding to coordinates input
-    */
-    std::vector<int> grab_idxs(std::vector< std::vector<int> > coords) {
-        std::vector<int> output;
-
-        for (int i=0; i<(int)coords.size(); i++) {
-            std::vector<int> coord = coords[i];
-            int w = coord[0];
-            int x = coord[1];
-            int y = coord[2];
-            int z = coord[3];
-
-            int value = (int)(*this)(w,x,y,z);
-            output.push_back(value);
-        }
-        return output;
-    }
-
-    /*
-    assign elements to a 1D slice of a FourDArr object corresponding to values input
-    */
-    void assign_idxs(std::vector< std::vector<int> > coords, std::vector<int> values) {
-        size_t w;
-        size_t x;
-        size_t y;
-        size_t z;
-        
-        
-
-        for (int i=0; i<(int)coords.size(); i++) {
-            std::vector<int> coord = coords[i];
-            w = (size_t)coord[0];
-            x = (size_t)coord[1];
-            y = (size_t)coord[2];
-            z = (size_t)coord[3];
-            (*this)(w,x,y,z) = values[i];
-        }
-    }
-
-private:
-    size_t len1_, len2_, len3_, len4_; ///< Dimensions of the array
-    int* data_; ///< The data stored in the array
-};
-
-
-/**
- * @class Region
- * @brief A class for storing data (rate constants) corresponding to a subset of coordinates in a FourDArr object.
- */
-class Region {
-public:
-    int id;  ///< Unique identifier for the region.
-    std::string bias;  ///< Bias direction of the region.
-    std::string type;  ///< Type of region (e.g., "GB" or "BLOCK").
-    std::vector<int> slopes;  ///< Slopes of the region (used for "GB" type).
-    std::vector<int> shifts;  ///< Shifts of the region (used for "GB" type).
-    std::vector<int> lowerbound;  ///< Lower bounds for the region (used for "BLOCK" type).
-    std::vector<int> upperbound;  ///< Upper bounds for the region (used for "BLOCK" type).
-    std::vector<std::vector<int>> params;  ///< Parameters defining the region.
-    std::vector<std::vector<std::vector<double>>> energies;  ///< Energy values for the region.
-    FourDDoubleArr region_rates_L;  ///< Left transition rates in the region.
-    FourDDoubleArr region_rates_R;  ///< Right transition rates in the region.
-    std::mt19937 rand_num;  ///< Random number generator for the region.
-    double mean;  ///< Mean value of the energy barrier distribution.
-    double stddev;  ///< Standard deviation of the energy barrier distribution.
-    double barrier_min;  ///< Minimum allowed energy barrier.
-    double barrier_max;  ///< Maximum allowed energy barrier.
-    double rate;  ///< Maximum allowed energy barrier.
-    std::vector<int> dimensions;  ///< Dimensions of the region.
-    bool random;  ///< Indicates whether rates are randomly assigned.
-    std::normal_distribution<double> distribution;  ///< Normal distribution for random barrier generation.
-    std::vector<double> rates;  ///< Predefined rates for the region.
-    bool interface;  ///< Whether the region has an interface.
-    int interface_i;  ///< Index of the interface.
-    int interface_dim;  ///< Dimension of the interface.
-    double interface_100_e;  ///< Rate for the 100 interface.
-    bool is_gb;
-    double e_below_bulk;
-
-    /**
-     * @brief Constructs a Region object with given parameters.
-     * 
-     * @param id_in Unique identifier for the region.
-     * @param reg_type Type of region ("GB" or "BLOCK").
-     * @param bias_direc Bias direction for the region.
-     * @param params_in Parameters defining the region.
-     * @param distribution Distribution parameters for random barriers.
-     * @param random_val Boolean indicating whether rates are randomized.
-     * @param rates_in Vector of predefined rates.
-     * @param interface_params Parameters for interface configuration.
-     * @param interface_100_rate_in Rate for the 100 interface.
-     */
-    /* energetic landscape based constructor */
-    Region(int id_in, std::string reg_type, std::string bias_direc, std::vector<std::vector<int>> params_in,
-           std::vector<double> distribution, bool random_val, double e_below_bulk_in,
-           std::vector<int> interface_params, double interface_100_e_in):
-            id(id_in), 
-            type(reg_type),
-            bias(bias_direc),
-            params(params_in),
-            region_rates_L(2, (params[1][0] - params[0][0]), (params[1][1] - params[0][1]), (params[1][2] - params[0][2])),
-            region_rates_R(2, (params[1][0] - params[0][0]), (params[1][1] - params[0][1]), (params[1][2] - params[0][2])),
-            random(random_val),
-            dimensions(3),
-            e_below_bulk(e_below_bulk_in),
-            interface(interface_params[0])
-
-            {
-                lowerbound = params[0];
-                upperbound = params[1];
-                dimensions[0] = params[1][0] - params[0][0];
-                dimensions[1] = params[1][1] - params[0][1];
-                dimensions[2] = params[1][2] - params[0][2];
-                std::cout << "interface_params: " <<  interface_params[0] << " "<<  interface_params[1]  << " "<<  interface_params[2] << " " <<  interface_params[3] << "\n";
-                if ((bool)interface_params[0]) {
-                    interface_i = (int)interface_params[1];
-                    interface_dim = (int)interface_params[2];
-                    is_gb = (bool)interface_params[3];
-                    interface_100_e = interface_100_e_in;
-                    std::cout << "INTERFACE id_in: " << id_in << " is_gb: " <<  is_gb << "\n";
-                }
-                else if ((bool)interface_params[3]) {
-                    interface_i = (int)interface_params[1];
-                    interface_dim = (int)interface_params[2];
-                    is_gb = (bool)interface_params[3];
-                    interface_100_e = interface_100_e_in;
-                    std::cout << "GB id_in: " << id_in << " is_gb: " <<  is_gb << "\n";
-                }
-                else {
-                    interface_i = 0;
-                    interface_dim = 0;
-                    is_gb = 0;
-                    interface_100_e = 0;
-                    std::cout << "ELSE id_in: " << id_in << " is_gb: " <<  is_gb << "\n";
-
-                }
-            }
-
-    /* rate based constructor */
-    Region(int id_in, std::string reg_type, std::string bias_direc, std::vector<std::vector<int>> params_in,
-           std::vector<double> distribution, bool random_val, std::vector<double> rates_in, 
-           double e_below_bulk_in, std::vector<int> interface_params, double interface_100_e_in):
-            id(id_in), 
-            type(reg_type),
-            bias(bias_direc),
-            params(params_in),
-            region_rates_L(2, (params[1][0] - params[0][0]), (params[1][1] - params[0][1]), (params[1][2] - params[0][2])),
-            region_rates_R(2, (params[1][0] - params[0][0]), (params[1][1] - params[0][1]), (params[1][2] - params[0][2])),
-            random(random_val),
-            dimensions(3),
-            rates(rates_in),
-            e_below_bulk(e_below_bulk_in),
-            interface(interface_params[0])
-
-            {
-                lowerbound = params[0];
-                upperbound = params[1];
-                dimensions[0] = params[1][0] - params[0][0];
-                dimensions[1] = params[1][1] - params[0][1];
-                dimensions[2] = params[1][2] - params[0][2];
-                std::cout << "interface_params: " <<  interface_params[0] << " "<<  interface_params[1]  << " "<<  interface_params[2] << " " <<  interface_params[3] << "\n";
-                if ((bool)interface_params[0]) {
-                    interface_i = (int)interface_params[1];
-                    interface_dim = (int)interface_params[2];
-                    is_gb = (bool)interface_params[3];
-                    interface_100_e = interface_100_e_in;
-                    std::cout << "interface_100_e: " << interface_100_e << "\n";
-                    std::cout << "INTERFACE id_in: " << id_in << " is_gb: " <<  is_gb << "\n";
-                }
-                else if ((bool)interface_params[3]) {
-                    interface_i = (int)interface_params[1];
-                    interface_dim = (int)interface_params[2];
-                    is_gb = (bool)interface_params[3];
-                    interface_100_e = interface_100_e_in;
-                    std::cout << "interface_100_e: " << interface_100_e << "\n";
-                    std::cout << "GB id_in: " << id_in << " is_gb: " <<  is_gb << "\n";
-                }
-                else {
-                    interface_i = 0;
-                    interface_dim = 0;
-                    is_gb = 0;
-                    interface_100_e = 0;
-                    std::cout << "interface_100_e: " << interface_100_e << "\n";
-                    std::cout << "ELSE id_in: " << id_in << " is_gb: " <<  is_gb << "\n";
-
-                }
-            }
-
-   
-   
-    /**
-     * @brief Computes the average connectivity of sites within the region.
-     * 
-     * @return The average connectivity of sites.
-     */
-    double avg_connectivity() {
-        std::vector< std::vector<int> > diag_directions = {{0,0,0}, {1,0,0}, {0,1,0}, {1,1,0}, {0,0,1}, {1,0,1}, {0,1,1}, {1,1,1}};
-        int degree_sum = 0;
-        int site_count = 0;
-        
-        for (int i=0; i<(int)dimensions[0]; i++) {
-            for (int j=0; j<(int)dimensions[1]; j++) {
-                for (int k=0; k<(int)dimensions[2]; k++) {
-                    for (int l=0; l<(int)dimensions[3]; l++) {
-                        
-                        if ( region_rates_L(i,j,k,l) != -1) {
-
-                            //std::cout << "i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
-                            int connectivity = 0;
-                            
-                            // moving vacancy from bc site to vertex site
-                            if (i == 1) {
-                                for (int i=0; i<(int)diag_directions.size(); i++) {
-                                    //if ((vac[3] == 0)) {/* checking for leftmost non-periodic boundary along z-axis*/}
-                                    //else if ((vac[3] == (int)(dimensions[3]-1))) {/* checking for rightmost non-periodic boundary along z-axis*/}
-                                    if ( region_rates_L( 0, (j + diag_directions[i][0]), (k + diag_directions[i][1]), 
-                                            (l + diag_directions[i][2])) != -1) { connectivity ++; }
-                                }
-                            }
-
-                            // moving vacancy from vertex site to bc site     
-                            else if (i == 0) {
-                                for (int i=0; i<(int)diag_directions.size(); i++) {
-                                    //if ((vac[3] == 0)) {/* checking for leftmost non-periodic boundary along z-axis*/}
-                                    //else if ((vac[3] == (int)(lattice_dim[2]-1))) {/* checking for rightmost non-periodic boundary along z-axis*/}
-                                    if ( region_rates_L( 1, (j - diag_directions[i][0]), (k - diag_directions[i][1]), 
-                                            (l - diag_directions[i][2])) != -1) { connectivity ++; }
-                                }
-                            }
-
-                            degree_sum += connectivity;
-                            site_count ++;
-                        }
-                    }
-                }
-            }
-        }
-        
-        double avg_degree = (double)degree_sum / (double)site_count;
-        
-        return avg_degree;
-    }
-
-    /**
-     * @brief Generates a random energy barrier within specified bounds.
-     * 
-     * @return A randomly generated barrier value.
-     */
-    double get_rand_barrier() {
-
-        double barrier = distribution(rand_num);
-        
-        while ((barrier > barrier_max) || (barrier < barrier_min)) { barrier = distribution(rand_num); }
-        
-        return barrier;
-
-    }
-
-    /**
-     * @brief Retrieves the transition rate for a given site in the region.
-     * 
-     * @param i First index (layer).
-     * @param j Second index (x-coordinate).
-     * @param k Third index (y-coordinate).
-     * @param l Fourth index (z-coordinate).
-     * @param LR_idx Indicates whether to retrieve from Left (1) or Right (0) rate array.
-     * @return The transition rate at the specified site.
-     */
-    double get_rate(int i, int j, int k, int l, int LR_idx) {
-
-        int i_new = i;
-        int j_new = j - lowerbound[0];
-        int k_new = k - lowerbound[1];
-        int l_new = l - lowerbound[2];
-
-        if (LR_idx) return region_rates_L(i_new, j_new, k_new, l_new);
-        else return region_rates_R(i_new, j_new, k_new, l_new);
-
-    }
-
-    /**
-     * @brief Randomly blocks sites within the region until the connectivity is within a desired range.
-     */
-    void random_blocking() {
-        int i_new; int j_new; int k_new; int l_new;
-        std::random_device dev;
-        std::mt19937 rng(dev());
-        std::uniform_int_distribution<std::mt19937::result_type> i_rand(0,1); 
-        std::uniform_int_distribution<std::mt19937::result_type> j_rand(0,(int)(dimensions[1]));
-        std::uniform_int_distribution<std::mt19937::result_type> k_rand(0,(int)(dimensions[2])); 
-        std::uniform_int_distribution<std::mt19937::result_type> l_rand(0,(int)(dimensions[3])); 
-
-        double connectivity = avg_connectivity();
-        std::cout << "connectivity: " << connectivity << "\n";
-        
-        while ((connectivity < 5) || (7 < connectivity)) {
-
-            i_new = i_rand(rng); 
-            j_new = j_rand(rng); 
-            k_new = k_rand(rng); 
-            l_new = l_rand(rng); 
-            //std::cout << "i_new: " << i_new << " j_new: " << j_new << " k_new: " << k_new << " l_new: " << l_new << "\n";
-
-            region_rates_L(i_new, j_new, k_new, l_new) = -1;
-            region_rates_R(i_new, j_new, k_new, l_new) = -1;
-
-            connectivity = avg_connectivity();
-        }
-    }
-
-    /**
-     * @brief Generates random barriers according to a distribution, checks if they are within bounds,
-     * and assigns them to sites in the region rate map.
-     * 
-     * @param reg_rates A vector of rates to be assigned within the region.
-     */
-    void random_barrier_assigner(std::vector<double> reg_rates) {
-
-        int x_range = dimensions[1];
-        int y_range = dimensions[2];
-        int z_range = dimensions[3];
-
-        std::cout << "reg_rates: \n";
-        print_1Dvector(reg_rates);
-
-        double rand_barrier;
-        double rate;
-        double EULER = 2.71828182845904523536;
-
-        int direc;
-        if (reg_rates[0] > reg_rates[1]) direc = 0;
-        else direc = 1;
-
-        std::cout << "x_range: " << x_range << " y_range " << y_range << " z_range " << z_range << "\n";
-
-        // iterating over region sites
-        for (int i=0; i<2; i++) {
-            for (int j=0; j<x_range; j++) {
-                for (int k=0; k<y_range; k++) {
-                    for (int l=0; l<z_range; l++) {
-                        if (region_rates_L(i,j,k,l) != -1) {
-                            
-                            rand_barrier = get_rand_barrier();
-                            rate = 5e12 * std::pow(EULER, (-rand_barrier / (300* 8.6173e-5)));
-                            
-                            if (direc == 0) {
-
-                                if (rand_barrier < 0) {
-                                    region_rates_L(i,j,k,l) =  rate;
-                                    region_rates_R(i,j,k,l) =  5e12;
-                                }
-                                else {
-                                    region_rates_L(i,j,k,l) =  5e12;
-                                    region_rates_R(i,j,k,l) =  rate;
-                                }
-                            }
-                            else {
-
-                                if (rand_barrier < 0) {
-                                    region_rates_L(i,j,k,l) =  5e12;
-                                    region_rates_R(i,j,k,l) =  rate;
-                                }
-                                else {
-                                    region_rates_L(i,j,k,l) =  rate;
-                                    region_rates_R(i,j,k,l) =  5e12;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-};
 
 
 /*------------------------------------------------------------------------------------*/
@@ -1010,7 +33,6 @@ class Lattice {
     std::vector< std::vector<int> > diag_directions;
     std::vector< std::vector<int> > edge_directions;
     std::map<int, double> rate_typedict;
-    std::vector<bool> periodic;
 
     std::vector<int> ver_tuples_cumsum;
     std::vector<int> bc_tuples_cumsum;
@@ -1022,10 +44,10 @@ class Lattice {
         std::vector<Region*> regions;
         std::vector<int> lattice_dim;
         std::map<int, std::string> a_types;
-        FourDArr vertex_sites;
         FourDBoolArr vacancies;
+        FourDArr vertex_sites;
         FourDArr bc_sites;
-        FourDArr region_sites;
+        //FourDArr region_sites;
         std::vector<std::vector<int>> onevac_vec;
         std::vector<std::vector<int>> non_onevac;
         std::vector<double> probs;
@@ -1049,6 +71,7 @@ class Lattice {
         std::mt19937 mt_obj;
         std::uniform_int_distribution<std::mt19937::result_type> x_rand;
         std::uniform_int_distribution<std::mt19937::result_type> y_rand;
+        int num_atypes;
         int watch_var;
         int num_of_vacs;
         int void_threshold;
@@ -1085,23 +108,24 @@ class Lattice {
         int last_newNN;
         int last_idx_chosen;
         double system_energy;
-        double energy_cost;
         double total_cost;
+        std::vector<bool> dim_periodic;
+        std::unordered_map<uint64_t, uint8_t> regions_hash_table;
 
-        Lattice(int xdim, int ydim, int zdim, int num_vacancies, int num_regions, std::vector<Region*> regs_in):
+        Lattice(int xdim, int ydim, int zdim, int num_vacancies, int num_regions, std::vector<Region*> regs_in, int _num_atypes):
             regions(regs_in),
-            vertex_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
             vacancies((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
-            bc_sites((size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim),
-            region_sites((size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim),
+            vertex_sites((num_atypes > 1) ? (size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim : 0,0,0,0),
+            bc_sites((num_atypes > 1) ? (size_t)1, (size_t)xdim, (size_t)ydim, (size_t)zdim : 0,0,0,0),
+            //region_sites((num_regions > 0) ? (size_t)2, (size_t)xdim, (size_t)ydim, (size_t)zdim : 0,0,0,0),
             probs(num_vacancies),
             rates(num_vacancies),
             moves_coords((14 * num_vacancies), 4),
             moves_shifts((14 * num_vacancies), 3),
             moves_lattice((14 * num_vacancies), 1),
             moves_vacs((14 * num_vacancies), 1),
+
             ratecatalog_111(2, exp<int>(2,8)),
-            
             ratecatalog_100(2, exp<int>(2,14)),
             regionrates_111_L(num_regions, exp<int>(2,8)),
             regionrates_111_R(num_regions, exp<int>(2,8)),
@@ -1112,7 +136,8 @@ class Lattice {
             vacancies_pos(num_vacancies, 4),
             mt_obj((unsigned int)(std::chrono::high_resolution_clock::now().time_since_epoch().count())),
             x_rand(0, xdim),
-            y_rand(0, ydim)
+            y_rand(0, ydim),
+            num_atypes(_num_atypes)
 
             {
                 diag_directions = {{0,0,0}, {1,0,0}, {0,1,0}, {1,1,0}, {0,0,1}, {1,0,1}, {0,1,1}, {1,1,1}};
@@ -1127,7 +152,6 @@ class Lattice {
                 last_currNN = 0;
                 last_newNN = 0;
                 system_energy = 0;
-                energy_cost = 0;
                 total_cost = 0;
             }
 
@@ -1237,7 +261,41 @@ class Lattice {
 
             return NN_count;
         }
+
         
+        inline uint64_t hash_coord(int i, int j, int k, int l) {
+            uint64_t returnval = (i + (j+1) + (lattice_dim[0]*k+1) + (lattice_dim[0]*lattice_dim[1]*l+1));
+            return returnval;
+        }
+
+        
+        int find_region_id(int i, int j, int k, int l)  {
+            uint64_t reg_hash = hash_coord(i,j,k,l);
+            int reg_id;
+
+            if ( auto findit = regions_hash_table.find(reg_hash); findit != regions_hash_table.end() ) {
+                reg_id = findit->second;
+            } 
+            else { 
+                reg_id = 0; 
+            }
+
+            return reg_id;
+        }
+
+
+        int find_region_id_hashcomputed(uint64_t computed_hash)  {
+            int reg_id;
+
+            if ( auto findit = regions_hash_table.find(computed_hash); findit != regions_hash_table.end() ) {
+                reg_id = findit->second;
+            } 
+            else { 
+                reg_id = 0; 
+            }
+
+            return reg_id;
+        }
 
         /**
         * @brief Computes all possible atomic moves in the lattice.
@@ -1265,6 +323,8 @@ class Lattice {
             int NN_newsite = 0;
             int void_moves = 0;
             int move_count = 0;
+            int reg_id = 0;
+            uint64_t coord_hashed;
             //std::cout << "start vac loop\n";
             
             onevac_vec.clear();
@@ -1288,9 +348,11 @@ class Lattice {
                     moves_shifts.reshape(newsize, 3);
                     moves_lattice.reshape(newsize, 1);
                     moves_vacs.reshape(newsize, 1);
-                }
+                }              
 
-                int reg_id = region_sites(i, j, k, l);
+                //int reg_id = region_sites(i, j, k, l);
+                reg_id = find_region_id(i,j,k,l);
+                
                 // NN_vac = get_NN_count(vacancies_pos[idx], i); 
                 NN_vac = get_NN_count_2NNshell(vacancies_pos[idx], i); 
                 
@@ -1299,7 +361,7 @@ class Lattice {
                         //std::cout << "interface found: [ "  << i << " " << j << " " << k << " " << l << " ] \n";
                         interface_rate_count ++; }
                     else {
-                        //std::cout << "bulk found: [ "  << i << " " << j << " " << k << " " << l << " ] \n";
+                        std::cout << "bulk found: [ "  << i << " " << j << " " << k << " " << l << " ] \n";
                         bulk_rate_count ++; }
                 }
 
@@ -1314,10 +376,7 @@ class Lattice {
                 
                 // finding all moves along the {111} family of vectors
                 for (int s=0; s < (int)diag_directions.size(); s++) {
-                    if ((l == 0) && (i == 0) && (diag_directions[s][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
-                    else if ((l == (int)(lattice_dim[2]-1)) && (i == 1) && (diag_directions[s][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
-                    else {
-
+                    if (dim_periodic[2]) {
                         if ((i == 0) && (vacancies(1, (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
                             // checking that vertex site -> bc site move has new site occupied by atom
 
@@ -1356,8 +415,7 @@ class Lattice {
 
                             curr_move_num ++;
                             moves[0] ++;
-                        }
-                        
+                        }                        
                         else if ((i == 1) && (vacancies(0, (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
                             // checking that bc site -> vertex site move has new site occupied by atom                        
                             moves_coords[curr_move_num][0] = !i;
@@ -1400,14 +458,99 @@ class Lattice {
                             moves[0] ++;
                         }
                     }
+                    else {
+                        if ((l == 0) && (i == 0) && (diag_directions[s][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                        else if ((l == (int)(lattice_dim[2]-1)) && (i == 1) && (diag_directions[s][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                        else {
+
+                            if ((i == 0) && (vacancies(1, (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
+                                // checking that vertex site -> bc site move has new site occupied by atom
+
+                                moves_coords[curr_move_num][0] = !i;
+                                moves_coords[curr_move_num][1] = (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                                moves_coords[curr_move_num][2] = (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                                moves_coords[curr_move_num][3] = (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);                                        
+                                moves_shifts[curr_move_num][0] = - diag_directions[s][0];
+                                moves_shifts[curr_move_num][1] = - diag_directions[s][1];
+                                moves_shifts[curr_move_num][2] = - diag_directions[s][2]; 
+                                moves_lattice[curr_move_num][0] = 0;
+                                moves_vacs[curr_move_num][0] = idx;
+
+                                // NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                                //NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);                            
+                                NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);                            
+                                
+                                //std::cout << "lattice 0 \n";
+                                //rate = get_rateconstants_Elandscape(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
+                                rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
+                                    
+                                //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
+                        
+                                if (rate == void_gb_diss_barrier) void_moves ++;
+                                move_count ++;
+
+                                if (rate == -1) {
+                                    std::cout << "rollback_moves\n";
+                                    curr_move_num --;
+                                }
+                                else {
+                                    if (curr_move_num == 0) {rate_cumsum[0] = rate;}
+                                    else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
+                                }
+                                //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
+
+                                curr_move_num ++;
+                                moves[0] ++;
+                            }
+                            
+                            else if ((i == 1) && (vacancies(0, (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
+                                // checking that bc site -> vertex site move has new site occupied by atom                        
+                                moves_coords[curr_move_num][0] = !i;
+                                moves_coords[curr_move_num][1] = (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                                moves_coords[curr_move_num][2] = (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                                moves_coords[curr_move_num][3] = (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                                moves_shifts[curr_move_num][0] = diag_directions[s][0];
+                                moves_shifts[curr_move_num][1] = diag_directions[s][1];
+                                moves_shifts[curr_move_num][2] = diag_directions[s][2];
+                                moves_lattice[curr_move_num][0] = 1;
+                                moves_vacs[curr_move_num][0] = idx; 
+                                
+                                // getting rate corresponding to move
+                                // NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);   
+                                // NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                
+
+                                //std::cout << "lattice 1 \n";                  
+                                //rate = get_rateconstants_Elandscape(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
+                                rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
+                                    
+                                //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
+                        
+                                if (rate == void_gb_diss_barrier) void_moves ++;
+                                
+                                move_count ++;
+
+                                if (rate == -1) {
+                                    std::cout << "rollback_moves\n";
+                                    curr_move_num --;
+                                }
+                                else { 
+                                    if (curr_move_num == 0) {rate_cumsum[0] = rate;}
+                                    else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
+                                }
+                                //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
+
+                                curr_move_num ++;
+                                moves[0] ++;
+                            }
+                        }
+                    }
                 }
 
                 // finding all moves along the {100} family of vectors
                 for (int s=0; s < (int)edge_directions.size(); s++) {
-
-                    if ((l == 0) && (edge_directions[s][2] == -1)) {}  
-                    else if ((l == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
-                    else if (vacancies(i, (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0) {
+                    if (dim_periodic[2]) {  
                         // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
                         moves_shifts[curr_move_num][0] = edge_directions[s][0];
                         moves_shifts[curr_move_num][1] = edge_directions[s][1];
@@ -1452,6 +595,56 @@ class Lattice {
                         
                         curr_move_num ++;
                         moves[1] ++;
+                    }
+                    else {
+                        if ((l == 0) && (edge_directions[s][2] == -1)) {}  
+                        else if ((l == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
+                        else if (vacancies(i, (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0) {
+                            // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
+                            moves_shifts[curr_move_num][0] = edge_directions[s][0];
+                            moves_shifts[curr_move_num][1] = edge_directions[s][1];
+                            moves_shifts[curr_move_num][2] = edge_directions[s][2];
+                            moves_coords[curr_move_num][0] = i;
+                            moves_coords[curr_move_num][1] = (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                            moves_coords[curr_move_num][2] = (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                            moves_coords[curr_move_num][3] = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                            moves_vacs[curr_move_num][0] = idx; 
+                            
+                            if (i == 0) {
+                                moves_lattice[curr_move_num][0] = 2;
+                                //NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 2);
+                                // NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                            }
+                            else if (i == 1) {
+                                moves_lattice[curr_move_num][0] = 3;
+                                //NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 3);
+                                // NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                            }    
+                            // getting rate corresponding to move
+                            //NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                            //std::cout << "lattice 2 or 3 \n";
+                            //rate = get_rateconstants_Elandscape(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
+                            rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
+                                
+                            //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
+                        
+                            if (rate == void_gb_diss_barrier) void_moves ++;
+                            move_count ++;
+
+                            if (rate == -1) {
+                                std::cout << "rollback_moves\n";
+                                curr_move_num --;}
+                            else { 
+                                if (curr_move_num == 0) {rate_cumsum[0] = rate;}
+                                else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
+                            }
+                            //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
+                            
+                            curr_move_num ++;
+                            moves[1] ++;
+                        }
                     }
                 }
             }
@@ -1518,16 +711,18 @@ class Lattice {
             moves_shifts.reshape(num_of_moves, 3);
             moves_lattice.reshape(num_of_moves, 1);
             
-        }
+        }    
+
 
         void new_get_actions_Elandscape(int move_ticks) {            
             int curr_move_num = 0; // total number of moves at this current timestep  
             double rate; 
-            int vacs_on_interface = 0; // vacancies at last z-index of lattice (used to calculate rate for stripping)
-            system_energy = 0; 
-            
+            int vacs_on_interface = 0; // vacancies at last z-index of lattice (used to calculate rate for stripping)         
+            system_energy = 0;
             //std::cout << "about to access lattice_dim\n";
             int num_interface_sites = lattice_dim[0] * lattice_dim[1]; // total number of sites at last z-index 
+            int reg_id = 0;
+            uint64_t coord_hashed;
 
             //std::cout << "accessed lattice_dim\n";
             std::vector<int> moves(2);
@@ -1540,11 +735,12 @@ class Lattice {
             int NN_newsite = 0;
             int void_moves = 0;
             int move_count = 0;
+            double E_initial;
+            int curr_NN_SE;
             //std::cout << "start vac loop\n";
             
             onevac_vec.clear();
             non_onevac.clear();          
-
             // looping over all vacancies in system
             for (int idx=0; idx < (int)vacancies_pos.rows(); idx++) {
                 // position in lattice of vacancy 
@@ -1566,29 +762,40 @@ class Lattice {
                     moves_vacs.reshape(newsize, 1);
                 }
 
-                int reg_id = region_sites(i, j, k, l);
-                NN_vac = get_NN_count(vacancies_pos[idx], i); 
+                //int reg_id = region_sites(i, j, k, l);
+
+                reg_id = find_region_id(i,j,k,l);
+                //std::cout << "found reg_id: " << reg_id << "\n";
+
+                // int reg_id = get_region_idx(i,j,k,l)
+                NN_vac = get_NN_count(vacancies_pos[idx], i);
+                E_initial = 0;                               
+                curr_NN_SE = 0;
                 //NN_vac = get_NN_count_2NNshell(vacancies_pos[idx], i); 
                 
-                double E_initial = 0;                               
-                int curr_NN_SE = 0;
-                
+                //std::cout << "NN_vac: " << NN_vac << "\n";
+                //std::cout << "i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
+
                 // determining if in region or solid electrolyte region
+
                 if (reg_id != 0) { }
                 else if (l == (lattice_dim[2]-1)) { curr_NN_SE = 1; }
                 
                 // getting initial site energy
-                if (reg_id != 0) { E_initial = regions[(reg_id-1)]->e_below_bulk; }
+                if (reg_id != 0) { E_initial = regions[(reg_id-1)]->e_below_bulk; std::cout << "Region you should never see this \n";}
                 else if (curr_NN_SE != 0) { 
-                    if ((NN_vac >= void_threshold)) { E_initial = void_E; }
-                    else { E_initial = interface_E; } }              
-                else {                                                                                                                                                                                                                                                                                                                                     
+                    if ((NN_vac >= void_threshold)) { E_initial = void_E;} // std::cout << "INTERFACE  you probably shouldn't see this too early \n";}
+                    else { E_initial = interface_E;}// std::cout << "INTERFACE void you probably shouldn't see this too early \n";} }   
+                }           
+                else {  
                     if ((NN_vac >= void_threshold)) { E_initial = void_E; }
                     else { E_initial = 0;}
                 }
-
+                //std::cout << "E_initial " << E_initial << "\n"; 
                 system_energy += E_initial;
+                //std::cout << "system_energy " << system_energy << "\n";
                 
+
                 if (NN_vac < void_threshold) {
                     if (l > (lattice_dim[2] - 2)) { 
                         //std::cout << "interface found: [ "  << i << " " << j << " " << k << " " << l << " ] NN_vac: " << NN_vac <<  "\n";
@@ -1608,10 +815,7 @@ class Lattice {
                 */    
                 // finding all moves along the {111} family of vectors
                 for (int s=0; s < (int)diag_directions.size(); s++) {
-                    if ((l == 0) && (i == 0) && (diag_directions[s][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
-                    else if ((l == (int)(lattice_dim[2]-1)) && (i == 1) && (diag_directions[s][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
-                    else {
-
+                    if (dim_periodic[2]) {
                         if ((i == 0) && (vacancies(1, (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
                             // checking that vertex site -> bc site move has new site occupied by atom
 
@@ -1630,7 +834,7 @@ class Lattice {
                             //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);                            
                             
                             //std::cout << "lattice 0 \n";
-                            rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
+                            rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
                             //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
                                 
                             //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
@@ -1650,8 +854,7 @@ class Lattice {
 
                             curr_move_num ++;
                             moves[0] ++;
-                        }
-                        
+                        }                        
                         else if ((i == 1) && (vacancies(0, (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
                             // checking that bc site -> vertex site move has new site occupied by atom                        
                             moves_coords[curr_move_num][0] = !i;
@@ -1671,7 +874,7 @@ class Lattice {
                             
 
                             //std::cout << "lattice 1 \n";                  
-                            rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
+                            rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
                             //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
                                 
                             //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
@@ -1694,14 +897,99 @@ class Lattice {
                             moves[0] ++;
                         }
                     }
+                    else {
+                        if ((l == 0) && (i == 0) && (diag_directions[s][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                        else if ((l == (int)(lattice_dim[2]-1)) && (i == 1) && (diag_directions[s][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                        else {
+
+                            if ((i == 0) && (vacancies(1, (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
+                                // checking that vertex site -> bc site move has new site occupied by atom
+
+                                moves_coords[curr_move_num][0] = !i;
+                                moves_coords[curr_move_num][1] = (((j - diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                                moves_coords[curr_move_num][2] = (((k - diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                                moves_coords[curr_move_num][3] = (((l - diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);                                        
+                                moves_shifts[curr_move_num][0] = - diag_directions[s][0];
+                                moves_shifts[curr_move_num][1] = - diag_directions[s][1];
+                                moves_shifts[curr_move_num][2] = - diag_directions[s][2]; 
+                                moves_lattice[curr_move_num][0] = 0;
+                                moves_vacs[curr_move_num][0] = idx;
+
+                                // NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                                NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);                            
+                                //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);                            
+                                
+                                //std::cout << "lattice 0 \n";
+                                rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
+                                //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
+                                    
+                                //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
+                        
+                                if (rate == void_gb_diss_barrier) void_moves ++;
+                                move_count ++;
+
+                                if (rate == -1) {
+                                    std::cout << "rollback_moves\n";
+                                    curr_move_num --;
+                                }
+                                else {
+                                    if (curr_move_num == 0) {rate_cumsum[0] = rate;}
+                                    else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
+                                }
+                                //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
+
+                                curr_move_num ++;
+                                moves[0] ++;
+                            }
+                            
+                            else if ((i == 1) && (vacancies(0, (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0)) {
+                                // checking that bc site -> vertex site move has new site occupied by atom                        
+                                moves_coords[curr_move_num][0] = !i;
+                                moves_coords[curr_move_num][1] = (((j + diag_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                                moves_coords[curr_move_num][2] = (((k + diag_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                                moves_coords[curr_move_num][3] = (((l + diag_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                                moves_shifts[curr_move_num][0] = diag_directions[s][0];
+                                moves_shifts[curr_move_num][1] = diag_directions[s][1];
+                                moves_shifts[curr_move_num][2] = diag_directions[s][2];
+                                moves_lattice[curr_move_num][0] = 1;
+                                moves_vacs[curr_move_num][0] = idx; 
+                                
+                                // getting rate corresponding to move
+                                // NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 1);   
+                                NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                
+
+                                //std::cout << "lattice 1 \n";                  
+                                rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
+                                //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
+                                    
+                                //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
+                        
+                                if (rate == void_gb_diss_barrier) void_moves ++;
+                                
+                                move_count ++;
+
+                                if (rate == -1) {
+                                    std::cout << "rollback_moves\n";
+                                    curr_move_num --;
+                                }
+                                else { 
+                                    if (curr_move_num == 0) {rate_cumsum[0] = rate;}
+                                    else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
+                                }
+                                //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
+
+                                curr_move_num ++;
+                                moves[0] ++;
+                            }
+                        }
+                    }
                 }
 
                 // finding all moves along the {100} family of vectors
                 for (int s=0; s < (int)edge_directions.size(); s++) {
-
-                    if ((l == 0) && (edge_directions[s][2] == -1)) {}  
-                    else if ((l == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
-                    else if (vacancies(i, (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0) {
+                    if (dim_periodic[2]) {
                         // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
                         moves_shifts[curr_move_num][0] = edge_directions[s][0];
                         moves_shifts[curr_move_num][1] = edge_directions[s][1];
@@ -1727,7 +1015,7 @@ class Lattice {
                         // getting rate corresponding to move
                         //NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
                         //std::cout << "lattice 2 or 3 \n";
-                        rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite); 
+                        rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
                         //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
                             
                         //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
@@ -1746,6 +1034,57 @@ class Lattice {
                         
                         curr_move_num ++;
                         moves[1] ++;
+
+                    }
+                    else {
+                        if ((l == 0) && (edge_directions[s][2] == -1)) {}  
+                        else if ((l == (int)(lattice_dim[2]-1)) && (edge_directions[s][2] == 1)) {}
+                        else if (vacancies(i, (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])) == 0) {
+                            // checking that vertex site -> vertex site or bc site -> bc site move has new site occupied by atom
+                            moves_shifts[curr_move_num][0] = edge_directions[s][0];
+                            moves_shifts[curr_move_num][1] = edge_directions[s][1];
+                            moves_shifts[curr_move_num][2] = edge_directions[s][2];
+                            moves_coords[curr_move_num][0] = i;
+                            moves_coords[curr_move_num][1] = (((j + edge_directions[s][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                            moves_coords[curr_move_num][2] = (((k + edge_directions[s][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                            moves_coords[curr_move_num][3] = (((l + edge_directions[s][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                            moves_vacs[curr_move_num][0] = idx; 
+                            
+                            if (i == 0) {
+                                moves_lattice[curr_move_num][0] = 2;
+                                //NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 2);
+                                NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                            }
+                            else if (i == 1) {
+                                moves_lattice[curr_move_num][0] = 3;
+                                //NN_newsite = get_NNcountofNN(i, j, k, l, 1, s, 3);
+                                NN_newsite = get_NN_count(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                                //NN_newsite = get_NN_count_2NNshell(moves_coords[curr_move_num], moves_coords[curr_move_num][0], vacancies_pos[idx], true);
+                            }    
+                            // getting rate corresponding to move
+                            //NN_newsite = get_NNcountofNN(i, j, k, l, -1, s, 0);
+                            //std::cout << "lattice 2 or 3 \n";
+                            rate = get_rateconstants_Elandscape_interface_GB(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite, coord_hashed); 
+                            //rate = new_get_rateconstants(vacancies_pos[idx], moves_shifts[curr_move_num], moves_lattice[curr_move_num][0], NN_vac, NN_newsite);
+                                
+                            //std::cout << "old: [ "  << i << " " << j << " " << k << " " << l << " ]   " << "new: [ "  << moves_coords[curr_move_num][0] << " " << moves_coords[curr_move_num][1] << " " << moves_coords[curr_move_num][2] << " " << moves_coords[curr_move_num][3] << " ]   rate:" << rate << "  NN_curr: " << NN_vac << " NN_newsite: " << NN_newsite << "\n";
+                        
+                            if (rate == void_gb_diss_barrier) void_moves ++;
+                            move_count ++;
+
+                            if (rate == -1) {
+                                std::cout << "rollback_moves\n";
+                                curr_move_num --;}
+                            else { 
+                                if (curr_move_num == 0) {rate_cumsum[0] = rate;}
+                                else { rate_cumsum[curr_move_num] = rate + rate_cumsum[(curr_move_num-1)]; }
+                            }
+                            //std::cout << "curr_move_num: " << curr_move_num << " rate: " << rate << "\n";
+                            
+                            curr_move_num ++;
+                            moves[1] ++;
+                        }
                     }
                 }
             }
@@ -1808,7 +1147,7 @@ class Lattice {
             */
             std::cout << "bulk rate count: " << bulk_rate_count << "\n";
             std::cout << "interface rate count: " << interface_rate_count << "\n";
-            
+
             last_bulk_count = bulk_rate_count;
             
             // UPDATING SIZE OF DATA STRUCTURES CONTIANING COORDINATES AND RATES OF MOVES
@@ -1822,7 +1161,6 @@ class Lattice {
             moves_lattice.reshape(num_of_moves, 1);
                 
         }
-
         
         /**
         * @brief Function for finding the rate corresponding to NN-encoding and move type.
@@ -1852,9 +1190,11 @@ class Lattice {
             int k_new = (((coord[2] + shift[1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
             int l_new = (((coord[3] + shift[2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);                                        
             
-            int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
-            int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
-
+            //int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            int reg_id = regions_hash_table.at(hash_coord(coord[0], coord[1], coord[2], coord[3]));
+            
+            //int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
+            int new_reg_id = regions_hash_table.at(hash_coord(i_new, j_new, k_new, l_new));
             // DETERMINING DIRECTION OF MOVE //
             //std::cout << "i: " << coord[0] << " j: " << coord[1] << " k: " << coord[2] << " l: " << coord[3] << "\n";
             //std::cout << "i_new: " << i_new << " j_new: " << j_new << " k_new: " << k_new << " l_new: " << l_new << "\n";
@@ -2125,7 +1465,9 @@ class Lattice {
                 }
                               
                 
-                reg_id = region_sites(i1, i2, i3, i4);
+                // reg_id = region_sites(i1, i2, i3, i4);
+                reg_id = regions_hash_table.at(hash_coord(i1, i2, i3, i4));
+                
 
                 if (NN_count >= void_threshold) {
                     if (i4 == (lattice_dim[2]-1)) { }
@@ -2188,9 +1530,12 @@ class Lattice {
                                 } 
                             }
                         }
+                        //std::cout << "NN_count: " << NN_count << "\n";
                     }                    
                 }
-                reg_id = region_sites(i1, i2, i3, i4);
+                //reg_id = region_sites(i1, i2, i3, i4);
+                reg_id = regions_hash_table.at(hash_coord(i1, i2, i3, i4));
+                
 
                 if (NN_count >= void_threshold) {
                     if (i4 == (lattice_dim[2]-1)) { }
@@ -2264,8 +1609,9 @@ class Lattice {
                                 } 
                             }
                         }
-                        //std::cout << "NN_count: " << NN_count << "\n";
-                        reg_id = region_sites(i1, i2, i3, i4);
+                        //std::cout << "NN_count: " << NN_count << "\n"
+                        
+                        int reg_id =  find_region_id(i1,i2,i3,i4);
 
                         if (NN_count >= void_threshold) {
                             if (i4 == (lattice_dim[2]-1)) { total_E += void_E; }
@@ -2330,7 +1676,7 @@ class Lattice {
                         }
                         //std::cout << "NN_count: " << NN_count << "\n";
                     
-                        reg_id = region_sites(i1, i2, i3, i4);
+                        int reg_id =  find_region_id(i1,i2,i3,i4);
 
                         if (NN_count >= void_threshold) {
                             if (i4 == (lattice_dim[2]-1)) { total_E += void_E; }
@@ -2416,7 +1762,8 @@ class Lattice {
                 }
                               
                 
-                reg_id = region_sites(i1, i2, i3, i4);
+                //reg_id = region_sites(i1, i2, i3, i4);
+                reg_id = regions_hash_table.at(hash_coord(i1, i2, i3, i4));
 
                 if (NN_count >= void_threshold) {
                     if (i4 == (lattice_dim[2]-1)) { }
@@ -2482,7 +1829,8 @@ class Lattice {
                         //std::cout << "NN_count: " << NN_count << "\n";
                     }                    
                 }
-                reg_id = region_sites(i1, i2, i3, i4);
+                //reg_id = region_sites(i1, i2, i3, i4);
+                reg_id = regions_hash_table.at(hash_coord(i1, i2, i3, i4));
 
                 if (NN_count >= void_threshold) {
                     if (i4 == (lattice_dim[2]-1)) { }
@@ -2632,7 +1980,7 @@ class Lattice {
         * @param new_NN The new nearest neighbor count.
         * @return The rate constant for the move.
         */
-        double get_rateconstants_Elandscape(int* coord, int* shift, int lattice, int curr_NN, int new_NN) {  
+        double get_rateconstants_Elandscape(int* coord, int* shift, int lattice, int curr_NN, int new_NN, uint64_t old_reg_hash) {  
             //std::cout << "entering get_rateconstants()\n";
             double rate = -1;
             double E_initial;
@@ -2645,8 +1993,13 @@ class Lattice {
             int k_new = (((coord[2] + shift[1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
             int l_new = (((coord[3] + shift[2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);                                        
             
-            int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
-            int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
+            //int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            int reg_id = find_region_id_hashcomputed(old_reg_hash);
+
+            //int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
+            ///int new_reg_id = regions_hash_table.at(hash_coord(i_new, j_new, k_new, l_new));
+            int new_reg_id = find_region_id(i_new, j_new, k_new, l_new);
+
 
             //int new_loc_arr[4];
             //new_loc_arr[0] = i_new; new_loc_arr[1] = j_new; 
@@ -2743,8 +2096,10 @@ class Lattice {
             int l_new = (((coord[3] + shift[2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
             //std::cout << "new loc: [ " << i_new << " " << j_new << " " << k_new << " " << l_new << " ]\n";                                    
             
-            int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
-            int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
+            //int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            int reg_id = regions_hash_table.at(hash_coord(coord[0], coord[1], coord[2], coord[3]));
+            //int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
+            int new_reg_id = regions_hash_table.at(hash_coord(i_new, j_new, k_new, l_new));
             
             int curr_NN_SE = 0;
             int new_NN_SE = 0;
@@ -2834,7 +2189,7 @@ class Lattice {
             return rate;
         }
 
-        double get_rateconstants_Elandscape_interface_GB(int* coord, int* shift, int lattice, int curr_NN, int new_NN) {  
+        double get_rateconstants_Elandscape_interface_GB(int* coord, int* shift, int lattice, int curr_NN, int new_NN, uint64_t old_reg_hash) {  
             //std::cout << "entering get_rateconstants()\n";
             double rate = -1;
             double E_initial = 0;
@@ -2846,9 +2201,15 @@ class Lattice {
             int j_new = (((coord[1] + shift[0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
             int k_new = (((coord[2] + shift[1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
             int l_new = (((coord[3] + shift[2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+            int new_reg_id; int reg_id;
             
-            int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
-            int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
+            //int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            // int reg_id = regions_hash_table.at(hash_coord(coord[0], coord[1], coord[2], coord[3]));            
+            reg_id = find_region_id_hashcomputed(old_reg_hash);
+
+            //int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
+            ///int new_reg_id = regions_hash_table.at(hash_coord(i_new, j_new, k_new, l_new));
+            new_reg_id = find_region_id(i_new, j_new, k_new, l_new);
             
             int curr_NN_SE = 0;
             int new_NN_SE = 0;
@@ -2937,14 +2298,14 @@ class Lattice {
             //std::cout << "curr_NN: " << curr_NN << " new_NN: " << new_NN << "\n";
             
             return rate;
-        }        
+        }      
 
         double delta_E_init_to_final(int* coord, int* shift, int lattice, int curr_NN, int new_NN) {
             //std::cout << "entering get_rateconstants()\n";
             
             double E_initial = 0;
             double E_final = 0;
-            std::cout << "curr_NN: " << curr_NN << "new_NN: " << new_NN << "\n";
+            //std::cout << "curr_NN: " << curr_NN << "new_NN: " << new_NN << "\n";
 
             int i_new; 
 
@@ -2953,10 +2314,14 @@ class Lattice {
             int j_new = (((coord[1] + shift[0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
             int k_new = (((coord[2] + shift[1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
             int l_new = (((coord[3] + shift[2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
-            
-            int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
-            int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
-            
+
+            //int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            int reg_id = find_region_id(coord[0], coord[1], coord[2], coord[3]);
+
+            //int new_reg_id = region_sites(i_new, j_new, k_new, l_new);
+            ///int new_reg_id = regions_hash_table.at(hash_coord(i_new, j_new, k_new, l_new));
+            int new_reg_id = find_region_id(i_new, j_new, k_new, l_new);
+
             int curr_NN_SE = 0;
             int new_NN_SE = 0;
 
@@ -2993,11 +2358,12 @@ class Lattice {
             // energy difference 
             double delta_endpoints = E_final - E_initial;
             double neighbor_deltaE = delta_E_NN + delta_endpoints;
-            std::cout << "delta_endpoints: " << delta_endpoints << "\n";
-            std::cout << "delta_E_NN: " << delta_E_NN << "\n";
+            //std::cout << "delta_endpoints: " << delta_endpoints << "\n";
+            //std::cout << "delta_E_NN: " << delta_E_NN << "\n";
             
             return neighbor_deltaE;
         }
+
 
         /**
         * @brief Method for obtaining the number of vacancies in the nearest neighbor shell of a vacancy.
@@ -3019,6 +2385,7 @@ class Lattice {
                     new_i3 = (((vac[2] + diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
                     new_i4 = (((vac[3] + diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
                     
+                    //if ((vac[3] == 0) && (diag_directions[i][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
                     if ((vac[3] == (int)(lattice_dim[2]-1)) && (diag_directions[i][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
                     else { 
                         if ((exclude_loc_bool) && (new_i1 == exclude_loc_vac[0]) 
@@ -3028,6 +2395,23 @@ class Lattice {
                         else { count += vacancies(0, new_i2, new_i3, new_i4); }
                     }                        
                 }
+                //for (int i=0; i<(int)edge_directions.size(); i++) {
+                //    new_i1 = vac[0];
+                //    new_i2 = (((vac[1] + edge_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                //    new_i3 = (((vac[2] + edge_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                //   new_i4 = (((vac[3] + edge_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                    
+                //    if ((vac[3] == 0) && (edge_directions[i][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                //    if ((vac[3] == (int)(lattice_dim[2]-1)) && (edge_directions[i][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                //    else { 
+                        
+                //        if ((exclude_loc_bool) && (new_i1 == exclude_loc_vac[0]) 
+                //            && (new_i2 == exclude_loc_vac[1]) 
+                //            && (new_i3 == exclude_loc_vac[2]) 
+                //            && (new_i4 == exclude_loc_vac[3])) {}
+                //        else { count += vacancies(1, new_i2, new_i3, new_i4); }
+                //    }
+                //}
             }
 
             // moving vacancy from vertex site to bc site     
@@ -3039,6 +2423,7 @@ class Lattice {
                     new_i4 = (((vac[3] - diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
                                         
                     if ((vac[3] == 0) && (diag_directions[i][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                    // else if ((vac[3] == (int)(lattice_dim[2]-1)) && (diag_directions[i][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
                     else { 
                         if ((exclude_loc_bool) && (new_i1 == exclude_loc_vac[0]) 
                             && (new_i2 == exclude_loc_vac[1]) 
@@ -3048,6 +2433,22 @@ class Lattice {
                     }
                 
                 }
+                //for (int i=0; i<(int)edge_directions.size(); i++) {
+                //    new_i1 = vac[0];
+                //    new_i2 = (((vac[1] + edge_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]);
+                //    new_i3 = (((vac[2] + edge_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]);
+                //    new_i4 = (((vac[3] + edge_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]);
+                    
+                //    if ((vac[3] == 0) && (edge_directions[i][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
+                //    else if ((vac[3] == (int)(lattice_dim[2]-1)) && (edge_directions[i][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
+                //    else { 
+                //        if ((exclude_loc_bool) && (new_i1 == exclude_loc_vac[0]) 
+                //            && (new_i2 == exclude_loc_vac[1]) 
+                //            && (new_i3 == exclude_loc_vac[2]) 
+                //            && (new_i4 == exclude_loc_vac[3])) {}
+                //       else { count += vacancies(0, new_i2, new_i3, new_i4); }
+                //    }
+                //}
             }
             
             return count;
@@ -3091,7 +2492,7 @@ class Lattice {
             //std::cout << "count: " << count << "\n";
             return count;
         }
-        
+
         template <typename T>
         int get_NN_count_2NNshell(T vac, int lattice_idx, T exclude_loc_vac, bool exclude_loc_bool) {
             int count = 0;
@@ -3237,8 +2638,42 @@ class Lattice {
 
         /**
         * @brief Method for obtaining the number of vacancies in the nearest neighbor shells of a vacancies.
+
+        *
+        * @param shells number of nearest-neighbor shells to include
+        * @return The number of vacancies in the nearest neighbor shell for each vacancy.
+        */
+        std::vector<int> get_all_NN(int shells) {
+            int size = vacancies_pos.rows();
+            std::vector<int> vac_NN(size);
+            int vac_count;
+
+            if (shells == 1) {
+                for ( int i=0; i<(int)vacancies_pos.rows(); i++ ) {
+                    vac_count = get_NN_count(vacancies_pos[i], vacancies_pos[i][0]); 
+                    vac_NN[i] = vac_count;
+                }
+            }
+            else if (shells == 2) {
+                for ( int i=0; i<(int)vacancies_pos.rows(); i++ ) {
+                    vac_count = get_NN_count_2NNshell(vacancies_pos[i], vacancies_pos[i][0]); 
+                    vac_NN[i] = vac_count;
+                }
+            }
+            else { 
+                std::cout << "ERROR: wrong number of shells in get_all_NN()\n";
+                exit(0); 
+            }
+
+            return vac_NN;
+        }
+
+        /**
+        * @brief Template method for obtaining the number of vacancies in the nearest neighbor shells of a vacancies.
+        * Takes generic list of coordinates.
         *
         * @param vac Type T data structure (2-dimensional) containing all vacancy coordinates.
+        * @param shells number of nearest-neighbor shells to include
         * @return The number of vacancies in the nearest neighbor shell for each vacancy.
         */
         template <typename T>
@@ -3267,7 +2702,6 @@ class Lattice {
             return vac_NN;
         }
 
-
         /**
         * @brief Method for obtaining the number of adaptive GB sites in the nearest neighbor shell of a vacancy.
         *
@@ -3286,12 +2720,17 @@ class Lattice {
                     if ((vac[3] == 0) && (diag_directions[i][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
                     else if ((vac[3] == (int)(lattice_dim[2]-1)) && (diag_directions[i][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
                     else { 
-                        reg_id = region_sites(0, 
+                        //reg_id = region_sites(0, 
+                        //    (((vac[1] + diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), 
+                        //    (((vac[2] + diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), 
+                        //    (((vac[3] + diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]));
+                        
+                        int reg_id = regions_hash_table.at(hash_coord(0, 
                             (((vac[1] + diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), 
                             (((vac[2] + diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), 
-                            (((vac[3] + diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2]));
-                            
-                        if (reg_id == adaptive_gb_id) { count ++;}
+                            (((vac[3] + diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])));
+                        
+                            if (reg_id == adaptive_gb_id) { count ++;}
                         else if ((reg_id != 0) && (regions[(reg_id-1)]->is_gb)) { count ++;}
                     }
                     
@@ -3304,11 +2743,16 @@ class Lattice {
                     if ((vac[3] == 0) && (diag_directions[i][2] == 1)) {/* checking for leftmost non-periodic boundary along z-axis*/}
                     else if ((vac[3] == (int)(lattice_dim[2]-1)) && (diag_directions[i][2] == 1)) {/* checking for rightmost non-periodic boundary along z-axis*/}
                     else { 
-                        reg_id = region_sites(1, 
+                        //reg_id = region_sites(1, 
+                        //    (((vac[1] - diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), 
+                        //    (((vac[2] - diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), 
+                        //    (((vac[3] - diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])); 
+                        
+                        int reg_id = regions_hash_table.at(hash_coord(1, 
                             (((vac[1] - diag_directions[i][0]) % lattice_dim[0] + lattice_dim[0]) % lattice_dim[0]), 
                             (((vac[2] - diag_directions[i][1]) % lattice_dim[1] + lattice_dim[1]) % lattice_dim[1]), 
-                            (((vac[3] - diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])); 
-                            
+                            (((vac[3] - diag_directions[i][2]) % lattice_dim[2] + lattice_dim[2]) % lattice_dim[2])));
+
                         if (reg_id == adaptive_gb_id) { count ++;}
                         else if ((reg_id != 0) && (regions[(reg_id-1)]->is_gb)) { count ++;}
                     }
@@ -3355,24 +2799,29 @@ class Lattice {
             if (idx == -1) {
                 return -1;
             }
-
-            int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            int atom_id;
+            //int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            int reg_id = regions_hash_table.at(hash_coord(coord[0], coord[1], coord[2], coord[3]));
             if (reg_id != 0) {
 
                 if (lattice == 0) {
-                    int atom_id = bc_sites(coord[0], coord[1], coord[2], coord[3]);
+                    if (num_atypes > 1)  atom_id = bc_sites(coord[0], coord[1], coord[2], coord[3]);
+                    else atom_id = 1;
                     rate = region_energies[reg_id][atom_id][0][0];
                 }
                 else if (lattice == 1) {
-                    int atom_id = vertex_sites(coord[0], coord[1], coord[2], coord[3]);
+                    if (num_atypes > 1)  atom_id = vertex_sites(coord[0], coord[1], coord[2], coord[3]);
+                    else atom_id = 1;
                     rate = region_energies[reg_id][atom_id][1][0];
                 }
                 else if (lattice == 2) {
-                    int atom_id = vertex_sites(coord[0], coord[1], coord[2], coord[3]);
+                    if (num_atypes > 1) atom_id = vertex_sites(coord[0], coord[1], coord[2], coord[3]);
+                    else atom_id = 1;
                     rate = region_energies[reg_id][atom_id][2][0];
                 }
                 else if (lattice == 3) {
-                    int atom_id = bc_sites(coord[0], coord[1], coord[2], coord[3]);
+                    if (num_atypes > 1) atom_id = bc_sites(coord[0], coord[1], coord[2], coord[3]);
+                    else atom_id = 1;
                     rate = region_energies[reg_id][atom_id][3][0];
                 }
                 else {
@@ -3432,25 +2881,31 @@ class Lattice {
                 return -1;
             }
 
-            
-            int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            int atom_id;            
+            // int reg_id = region_sites(coord[0], coord[1], coord[2], coord[3]);
+            int reg_id = regions_hash_table.at(hash_coord(coord[0], coord[1], coord[2], coord[3]));
+
             if (reg_id != 0) {
                 // checking to see if move occurs in region with specially-defined rate constants
 
                 if (lattice == 0) {
-                    int atom_id = bc_sites(coord[0], coord[1], coord[2], coord[3]);
+                    if (num_atypes > 1) atom_id = bc_sites(coord[0], coord[1], coord[2], coord[3]);                    
+                    else atom_id = 1;
                     energy = region_energies[reg_id][atom_id][0][idx];
                 }
                 else if (lattice == 1) {
-                    int atom_id = vertex_sites(coord[0], coord[1], coord[2], coord[3]);
+                    if (num_atypes > 1) atom_id = vertex_sites(coord[0], coord[1], coord[2], coord[3]);              
+                    else atom_id = 1;
                     energy = region_energies[reg_id][atom_id][1][idx];
                 }
                 else if (lattice == 2) {
-                    int atom_id = vertex_sites(coord[0], coord[1], coord[2], coord[3]);
+                    if (num_atypes > 1) atom_id = vertex_sites(coord[0], coord[1], coord[2], coord[3]);              
+                    else atom_id = 1;
                     energy = region_energies[reg_id][atom_id][2][idx];
                 }
                 else if (lattice == 3) {
-                    int atom_id = bc_sites(coord[0], coord[1], coord[2], coord[3]);
+                    if (num_atypes > 1) atom_id = bc_sites(coord[0], coord[1], coord[2], coord[3]);              
+                    else atom_id = 1;
                     energy = region_energies[reg_id][atom_id][3][idx];
                 }
                 else {
@@ -3524,7 +2979,6 @@ class Lattice {
             return sum;
         }
  
-
         /**
         * @brief Updates the positions of atoms on the lattice according to the selected move.
         * 
@@ -3534,7 +2988,8 @@ class Lattice {
         * @param idx Index of the selected move in the list of possible moves.
         */
         void new_update_lattice(int idx) {
-            
+            //std::cout << "update_lattice\n";
+            //std::cout << "moves_lattice[idx]: " << *moves_lattice[idx] << "\n";
             int* new_loc = moves_coords[idx]; // new location of vacancy
             std::vector<int> old_loc(3); // new location of vacancy
             int vacs_idx = *moves_vacs[idx]; // index of vacancy in master vector
@@ -3546,6 +3001,7 @@ class Lattice {
 
             int old_i = 0;
             int new_i = 0;
+            double energy_cost = 0;
 
             if (*moves_lattice[idx] == 0) { new_i = 1; old_i = 0; }
             else if (*moves_lattice[idx] == 1)  { new_i = 0; old_i = 1; }
@@ -3560,13 +3016,20 @@ class Lattice {
             std::vector<int> temp_newloc = {new_i, new_loc[1], new_loc[2], new_loc[3]};
             
             int old_loc_arr[4]; 
-            //int new_loc_arr[4];  
+            //int new_loc_arr[4]; 
             old_loc_arr[0] = old_i; old_loc_arr[1] = old_loc[0]; old_loc_arr[2] = old_loc[1]; old_loc_arr[3] = old_loc[2];
-            //new_loc_arr[0] = new_i; new_loc_arr[1] = new_loc[1]; old_loc_arr[2] = new_loc[2]; oldloc_arr[3] = new_loc[3];
-            std::vector<int> new_loc_arr = {new_i, new_loc[1], new_loc[2], new_loc[3]};        
+            
+            /*
+            std::cout << "initial state \n";
+            double E = get_E_of_NN(last_oldloc, last_newloc, *moves_lattice[idx], true, true);
+            std::cout << "final state \n";
+            E = get_E_of_NN(last_newloc, last_oldloc, *moves_lattice[idx], true, true);
+            */
             
             last_currNN = get_NN_count(temp_oldloc, old_i);
             last_newNN = get_NN_count(temp_newloc, new_i, temp_oldloc, true);
+            //std::cout << "last_currNN: ";
+            //std::cout << last_currNN << "\n";
 
             energy_cost = delta_E_init_to_final(old_loc_arr, moves_shifts[idx], moves_lattice[idx][0], last_currNN, last_newNN);
             total_cost += energy_cost;
@@ -3577,7 +3040,13 @@ class Lattice {
             std::cout << "energy_cost: " << energy_cost << "\n";
             std::cout << "total_cost: " << total_cost << "\n";
                         
-                     
+
+            //std::cout << "temp_oldloc: [" << temp_oldloc[0] << " " << temp_oldloc[1] << " " << temp_oldloc[2] << " " << temp_oldloc[3] << "]\n";
+            //std::cout << "temp_newloc: [" << temp_newloc[0] << " " << temp_newloc[1] << " " << temp_newloc[2] << " " << temp_newloc[3] << "]\n";
+
+            //std::cout << "energy_cost: " << energy_cost << "\n";
+            //std::cout << "total_cost: " << total_cost << "\n";
+                        
 
             last_idx_chosen = idx;
 
@@ -3585,15 +3054,17 @@ class Lattice {
             if (*moves_lattice[idx] == 4) {
                 std::cout << "stripping move begin\n";
                 int new_site;
-                if (new_loc[0] == 0) {
-                    // removing atom from lattice ###
-                    vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 0;
+                if (num_atypes > 1) {
+                    if (new_loc[0] == 0) {
+                        // removing atom from lattice ###
+                        vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 0;
+                    }
+                    if (new_loc[0] == 1) {
+                        // removing atom from lattice ###
+                        bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 0;
+                    }
                 }
-                if (new_loc[0] == 1) {
-                    // removing atom from lattice ###
-                    bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 0;
-                }
-                
+
                 // adding vacancy to lattice ###
                 vacancies((size_t)new_loc[0], (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 1;
                 
@@ -3614,16 +3085,24 @@ class Lattice {
                 /*---
                 BC EDGE MOVES
                 ---*/
-                int new_site = bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
-                int old_site = bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
-                            
-                // switching occupancy for old and new site in lattice array ###
-                bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = old_site;
-                bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = new_site;
 
-                // switching occupancy for old and new site in vacancy and mobileion arrays ###
-                vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = (old_site ^ 1);
-                vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = (new_site ^ 1);
+                if (num_atypes > 1) {
+                    int new_site = bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
+                    int old_site = bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
+                                
+                    // switching occupancy for old and new site in lattice array ###
+                    bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = old_site;
+                    bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = new_site;
+                
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = (old_site ^ 1);
+                    vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = (new_site ^ 1);
+                }
+                else {
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 1;
+                    vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 0;
+                }
                 
                 vacancies_pos[vacs_idx][0] = 1;  
                 old_loc_latt = 1;            
@@ -3634,16 +3113,24 @@ class Lattice {
                 /*---
                 VERTEX EDGE MOVES
                 ---*/
-                int new_site = vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
-                int old_site = vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
-                
-                // switching occupancy for old and new site in lattice array ###
-                vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = old_site;
-                vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = new_site;
-                
-                // switching occupancy for old and new site in vacancy and mobileion arrays ###
-                vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = (old_site ^ 1);
-                vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = (new_site ^ 1);
+                if (num_atypes > 1) {
+
+                    int new_site = vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
+                    int old_site = vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
+                    
+                    // switching occupancy for old and new site in lattice array ###
+                    vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = old_site;
+                    vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = new_site;
+                    
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = (old_site ^ 1);
+                    vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = (new_site ^ 1);
+                }
+                else {
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 1;
+                    vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 0;
+                }
                 
                 vacancies_pos[vacs_idx][0] = 0;
 
@@ -3655,17 +3142,23 @@ class Lattice {
                 /*---
                 BC MOVES
                 ---*/
-                int new_site = vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
-                int old_site = bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
+                if (num_atypes > 1) {
+                    int new_site = vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
+                    int old_site = bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
 
-                // switching occupancy for old and new site in lattice array ###
-                vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = old_site;
-                bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = new_site;
+                    // switching occupancy for old and new site in lattice array ###
+                    vertex_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = old_site;
+                    bc_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = new_site;
 
-                // switching occupancy for old and new site in vacancy and mobileion arrays ###
-                vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = (old_site ^ 1);
-                vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = (new_site ^ 1);
-
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = (old_site ^ 1);
+                    vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = (new_site ^ 1);
+                } 
+                else {
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    vacancies((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 1;
+                    vacancies((size_t)1, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 0;
+                }
                 vacancies_pos[vacs_idx][0] = 0; 
                 old_loc_latt = 1;                    
             }
@@ -3675,17 +3168,24 @@ class Lattice {
                 /*---
                 VERTEX MOVES
                 ---*/
-                // switching occupancy for old and new site in vacancy and mobileion arrays ###
-                int old_site = vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
-                int new_site = bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
+                if (num_atypes > 1) {
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    int old_site = vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]);
+                    int new_site = bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]);
 
-                // switching occupancy for old and new site in lattice array ###
-                vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = new_site;
-                bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = old_site;
+                    // switching occupancy for old and new site in lattice array ###
+                    vertex_sites((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = new_site;
+                    bc_sites((size_t)0, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = old_site;
 
-                // switching occupancy for old and new site in vacancy and mobileion arrays ###
-                vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = (new_site ^ 1);
-                vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = (old_site ^ 1); 
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = (new_site ^ 1);
+                    vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = (old_site ^ 1); 
+                }
+                else {
+                    // switching occupancy for old and new site in vacancy and mobileion arrays ###
+                    vacancies((size_t)0, (size_t)old_loc[0], (size_t)old_loc[1], (size_t)old_loc[2]) = 0;
+                    vacancies((size_t)1, (size_t)new_loc[1], (size_t)new_loc[2], (size_t)new_loc[3]) = 1;
+                }
 
                 vacancies_pos[vacs_idx][0] = 1;
                 old_loc_latt = 0;                    
@@ -3698,78 +3198,87 @@ class Lattice {
                 vacancies_pos[vacs_idx][3] = new_loc[3];
             }            
 
+            
+            /*
             // checking for changes in adaptive GB region
-            //last_newNN  = get_NN_count(temp_newloc, new_i);
-            last_newNN = get_NN_count(temp_newloc, new_i, temp_oldloc, true);
+            int new_NN  = get_NN_count(temp_newloc, new_i);
+            int curr_NN  = get_NN_count(temp_oldloc, old_i);
             
             //std::cout << "last_newNN: ";
             //std::cout << last_newNN << "\n";
             int old_reg_id = region_sites(old_loc_latt, old_loc[0],old_loc[1],old_loc[2]);
             int new_reg_id = region_sites(new_loc[0],new_loc[1],new_loc[2],new_loc[3]);
             
-            //int old_loc_arr[4];
+            int old_loc_arr[4];
+            int new_loc_arr[4];
 
             old_loc_arr[0] = old_loc_latt; old_loc_arr[1] = old_loc[0]; 
             old_loc_arr[2] = old_loc[1]; old_loc_arr[3] = old_loc[2];
 
+            new_loc_arr[0] = new_loc[0]; new_loc_arr[1] = new_loc[1]; 
+            new_loc_arr[2] = new_loc[2]; new_loc_arr[3] = new_loc[3];
+
             std::cout << "[ " << last_oldloc[0] << " " << last_oldloc[1] << " " << last_oldloc[2] << " " << last_oldloc[3] << " ]\n";
             //std::cout << "adaptive if statement update_lattice\n";
             
-            /*
-                int old_loc_adapt_count = get_adaptivesites_NN_count(coord, coord[0]);
-                int new_loc_adapt_count = get_adaptivesites_NN_count(new_loc_arr, new_loc_arr[0]);
+            int old_loc_adapt_count = get_adaptivesites_NN_count(old_loc_arr, old_loc_arr[0]);
+            int new_loc_adapt_count = get_adaptivesites_NN_count(new_loc_arr, new_loc_arr[0]);
+            
+            if ((old_reg_id == 0) 
+                && (new_reg_id == adaptive_gb_id) 
+                && (old_loc_adapt_count >= 3)
+                && (curr_NN >= void_threshold)) {//std::cout << "1st if statement\n";
+                        
+                if (regions.size() < (adaptive_gb_id)) {
+                    std::cout << "new region: " << adaptive_gb_id << "\n";
+                    Region* new_reg = regions[(new_reg_id-1)];
+                    Region* adaptive_reg =  new Region(adaptive_gb_id, "BLOCK", new_reg->bias, {{0,0,0},{0,0,0}}, 
+                        {0,0,0,0}, false, new_reg->e_below_bulk, {0,1,1,1}, //{0, new_reg->interface_i, new_reg->interface_dim,true}, 
+                        new_reg->interface_100_e); 
+
+                    regions.push_back(adaptive_reg);
+                }
+                std::cout << "adding adaptive site\n";
+
+                region_sites(old_loc_arr[0], old_loc_arr[1], old_loc_arr[2], old_loc_arr[3]) = adaptive_gb_id; 
+            }
+            else if ((old_reg_id == adaptive_gb_id) 
+                && (new_reg_id == 0) 
+                && (new_loc_adapt_count >= 3)
+                && (new_NN >= void_threshold)) {
                 
-                if ((old_reg_id == 0) && (new_reg_id == adaptive_gb_id) 
-                    && (old_loc_adapt_count >= void_threshold)
-                    && (curr_NN >= void_threshold)) {//std::cout << "1st if statement\n";
-                            
-                    if (regions.size() < (adaptive_gb_id)) {
-                        std::cout << "new region: " << adaptive_gb_id << "\n";
-                        Region* new_reg = regions[(new_reg_id-1)];
-                        Region* adaptive_reg =  new Region(adaptive_gb_id, "BLOCK", new_reg->bias, {{0,0,0},{0,0,0}}, 
-                            {0,0,0,0}, false, new_reg->e_below_bulk, {0,1,1,1}, //{0, new_reg->interface_i, new_reg->interface_dim,true}, 
-                            new_reg->interface_100_e); 
-
-                        regions.push_back(adaptive_reg);
-                    }
-                    std::cout << "adding adaptive site\n";
-
-                    region_sites(old_loc_arr[0], old_loc_arr[1], old_loc_arr[2], old_loc_arr[3]) = adaptive_gb_id; 
-                }
-                else if ((old_reg_id == adaptive_gb_id) && (new_reg_id == 0) 
-                    // && (new_loc_adapt_count >= void_threshold)
-                    && (new_NN >= void_threshold)) {
-                    
-                    region_sites(new_loc[0],new_loc[1],new_loc[2],new_loc[3]) = 0; 
-                    std::cout << "removed adding adaptive site: [ " << new_loc[0] << " " << new_loc[1] << " " << new_loc[2] << " " << new_loc[3] << " " << "]\n";
-                }
+                region_sites(new_loc[0],new_loc[1],new_loc[2],new_loc[3]) = 0; 
+                std::cout << "removed adding adaptive site: [ " << new_loc[0] << " " << new_loc[1] << " " << new_loc[2] << " " << new_loc[3] << " " << "]\n";
                 
-                if ( ((old_reg_id == 0)) && 
-                    (get_adaptivesites_NN_count(old_loc_arr, old_loc_latt) >= 3) && 
-                    (get_NN_count(old_loc_arr, old_loc_latt) >= void_threshold)) {
-                    //std::cout << "1st if statement\n";
-                            
-                    if (regions.size() < (adaptive_gb_id)) {
-                        std::cout << "new region: " << adaptive_gb_id << "\n";
-                        Region* new_reg = regions[(new_reg_id-1)];
-                        Region* adaptive_reg =  new Region(adaptive_gb_id, "BLOCK", new_reg->bias, {{0,0,0},{0,0,0}}, 
-                            {0,0,0,0}, false, new_reg->e_below_bulk, {0,1,1,1}, //{0, new_reg->interface_i, new_reg->interface_dim,true}, 
-                            new_reg->interface_100_e); 
-
-                        regions.push_back(adaptive_reg);
-                    }
-                    std::cout << "adding adaptive site\n";
-
-                    region_sites(old_loc_arr[0], old_loc_arr[1], old_loc_arr[2], old_loc_arr[3]) = adaptive_gb_id; 
-                }
-                else if ((new_reg_id == adaptive_gb_id)  && 
-                    (get_NN_count(vacancies_pos[vacs_idx], *moves_lattice[idx]) >= void_threshold) && 
-                    (new_loc_adapt_count >= 3)) { 
-
-                    region_sites(new_loc[0],new_loc[1],new_loc[2],new_loc[3]) = 0; 
-                    std::cout << "removed adding adaptive site: [ " << new_loc[0] << " " << new_loc[1] << " " << new_loc[2] << " " << new_loc[3] << " " << "]\n";
-                }
+            }
             */
+            /*
+            if ( ((old_reg_id == 0)) && 
+                (get_adaptivesites_NN_count(old_loc_arr, old_loc_latt) >= 3) && 
+                (get_NN_count(old_loc_arr, old_loc_latt) >= void_threshold)) {
+                //std::cout << "1st if statement\n";
+                        
+                if (regions.size() < (adaptive_gb_id)) {
+                    std::cout << "new region: " << adaptive_gb_id << "\n";
+                    Region* new_reg = regions[(new_reg_id-1)];
+                    Region* adaptive_reg =  new Region(adaptive_gb_id, "BLOCK", new_reg->bias, {{0,0,0},{0,0,0}}, 
+                        {0,0,0,0}, false, new_reg->e_below_bulk, {0,1,1,1}, //{0, new_reg->interface_i, new_reg->interface_dim,true}, 
+                        new_reg->interface_100_e); 
+
+                    regions.push_back(adaptive_reg);
+                }
+                std::cout << "adding adaptive site\n";
+
+                region_sites(old_loc_arr[0], old_loc_arr[1], old_loc_arr[2], old_loc_arr[3]) = adaptive_gb_id; 
+            }
+            else if ((new_reg_id == adaptive_gb_id)  && 
+                (get_NN_count(vacancies_pos[vacs_idx], *moves_lattice[idx]) >= void_threshold) && 
+                (new_loc_adapt_count >= 3)) { 
+                    region_sites(new_loc[0],new_loc[1],new_loc[2],new_loc[3]) = 0; 
+                    std::cout << "removed adding adaptive site: [ " << new_loc[0] << " " << new_loc[1] << " " << new_loc[2] << " " << new_loc[3] << " " << "]\n";
+            }
+            */
+
         }
 
 
@@ -3865,16 +3374,13 @@ class Lattice {
             std::vector< std::vector< std::vector<int> > > all_vacancies; // vector containing trajectory of vacancies
             std::vector<double> all_times; // vector containing trajectory of time elapsed by each type of move
             std::vector<int> NN_of_vacs; 
-            std::vector<double> system_Es;
-            std::vector<double> E_costs;
-
             last_newloc = {0,0,0,0};
             last_oldloc = {0,0,0,0};
             new_get_actions_Elandscape(0); // updating list of moves in system
+
             std::cout << "system_energy: " << system_energy << "\n";
             std::cout << "total_cost: " << total_cost << "\n";
             std::cout << "system_energy - total_cost: " << system_energy - total_cost << "\n";
-            system_Es.push_back(system_energy);
             //new_get_actions(0);
             std::cout << "t: " << t << "\n";
             std::cout << "rate_cumsum[-1]: " << rate_cumsum[((int)rate_cumsum.size() - 1)] << "\n";
@@ -3895,14 +3401,16 @@ class Lattice {
             std::string times_filename;
             std::string count_filename;
 
+            double last_rate_plus1;
+            double last_rate;
+            double last_rate_minus1;
+
             int idx = 0;
 
             std::cout << "number_of_regions: " << number_of_regions <<"\n";
             std::cout << "adaptive_gb_id: " << adaptive_gb_id <<"\n";
 
-
             while (t < time_lim) {
-                std::cout << "move_ticks: " << move_ticks << "\n";
                 std::cout << "t: " << t << "\n";
                 /*
                 std::cout << "move_ticks: " << move_ticks << "\n";
@@ -3931,46 +3439,22 @@ class Lattice {
                 // writing output files every 100000 timesteps 
                 
                 //std::cout << "move_ticks: " << move_ticks << "\n";
-                if (move_ticks % 1000 == 0) {
+                if (move_ticks % 100000 == 0) {
                     std::cout << "move_ticks: " << move_ticks << "\n";
 
-                    only_vacancies = vacancies.nonzero();
-                    std::vector<int> NN_of_vacs = get_all_NN(only_vacancies, 1);
-                    
-                    //std::cout << "only_vacancies: \n";
-                    //print_2Dvector(only_vacancies);
-                    //std::cout << "NN_of_vacs: \n";
-                    //print_1Dvector(NN_of_vacs);
+                    //only_vacancies = vacancies.nonzero();
+                    //std::vector<int> NN_of_vacs = get_all_NN(vacancies_pos, 1);
+                    std::vector<int> NN_of_vacs = get_all_NN(1);
+
 
                     ss << folder << "/vacs/vacancies_output_" << iteration << "_" << move_ticks << "_" << t << "_moves.txt";
                     output_filename = ss.str();
-                    //write_to_file(output_filename, only_vacancies, NN_of_vacs);
+
+                    write_to_file(output_filename, vacancies_pos, NN_of_vacs);
                     ss.str("");
                     ss.clear();
-                    std::cout << "fully out of write_to_file()\n";
-                }
 
-                end = std::chrono::system_clock::now(); 
-                elapsed_seconds = end-start; 
-                min_idx = get_idx(rate_cumsum);         
-                new_update_lattice(min_idx);
-                E_costs.push_back(energy_cost);
-                
-                move_counts[*moves_lattice[min_idx]] ++; 
-                timestep = new_random_times(rate_cumsum);
-                t += timestep; 
-                time_count[*moves_lattice[min_idx]] += timestep; 
-                timesteps.push_back(t);
-                move_ticks ++; 
-                old_time = t; 
-                
-                // if (elapsed_seconds.count() > 900) {std::cout << move_ticks << "\n"; exit(0);}
-                if (move_ticks > 1000000) {
-                    std::cout << move_ticks << "\n"; 
-                    ss << folder << "/energy_cost_with_time.txt";
-                    output_filename = ss.str();
-                    write_to_file(output_filename, system_Es, E_costs);                    
-                    exit(0);
+                    std::cout << "fully out of write_to_file()\n";
                 }
 
                 last_rate_plus1 = rate_cumsum[(min_idx+1)] - rate_cumsum[(min_idx)];
@@ -3979,6 +3463,28 @@ class Lattice {
                 std::cout << "last_rate + 1: " << last_rate_plus1 << "\n";
                 std::cout << "last_rate: " << last_rate << "\n";
                 std::cout << "last_rate - 1: " << last_rate_minus1 << "\n";
+
+                end = std::chrono::system_clock::now(); 
+                elapsed_seconds = end-start; 
+                min_idx = get_idx(rate_cumsum);         
+                new_update_lattice(min_idx);
+                
+                move_counts[*moves_lattice[min_idx]] ++; 
+                timestep = new_random_times(rate_cumsum);
+                t += timestep; 
+                time_count[*moves_lattice[min_idx]] += timestep; 
+                timesteps.push_back(t);
+                move_ticks ++; 
+                old_time = t; 
+
+
+                
+                // if (elapsed_seconds.count() > 900) {std::cout << move_ticks << "\n"; exit(0);}
+                // if (move_ticks > 10000) {std::cout << move_ticks << "\n"; exit(0);}
+
+                last_rate_plus1 = rate_cumsum[(min_idx+1)] - rate_cumsum[(min_idx)];
+                last_rate = rate_cumsum[(min_idx)] - rate_cumsum[(min_idx-1)];
+                last_rate_minus1 = rate_cumsum[(min_idx-1)] - rate_cumsum[(min_idx-2)]; 
 
 
                 // terminating simulation after real-time limit reached
@@ -4026,13 +3532,15 @@ class Lattice {
                 */                
 
                 new_get_actions_Elandscape(move_ticks);
-                system_Es.push_back(system_energy);
+
                 std::cout << "system_energy: " << system_energy << "\n";
                 std::cout << "total_cost: " << total_cost << "\n";
                 std::cout << "system_energy - total_cost: " << system_energy - total_cost << "\n";
-                //exit(0);
                 //new_get_actions(move_ticks);
                                 
+                //std::cout << "move_ticks: " << move_ticks << "  system_energy: " << system_energy << "\n";
+                //std::cout << "total_cost: " << total_cost << "\n";
+                //std::cout << "system_energy - total_cost: " << system_energy - total_cost << "\n";
             }
 
             std::cout << "t: " << t << "\n";
@@ -4510,13 +4018,15 @@ Region* add_region_Elandscape(std::vector<std::string> info) {
 
     if (info[1] == "GB") {
         // case of grain boundary region
-        params[0][0] = std::stoi(tokenizer(info[3], ":")[1]);
-        params[0][1] = std::stoi(tokenizer(info[4], ":")[1]);
-        params[0][2] = std::stoi(tokenizer(info[5], ":")[1]);
+        params[0][0] = std::stoi(tokenizer(info[2], ":")[1]);
+        params[0][1] = std::stoi(tokenizer(info[3], ":")[1]);
+        params[0][2] = std::stoi(tokenizer(info[4], ":")[1]);
         
-        params[1][0] = std::stoi(tokenizer(info[6], ":")[1]);
-        params[1][1] = std::stoi(tokenizer(info[7], ":")[1]);
-        params[1][2] = std::stoi(tokenizer(info[8], ":")[1]);
+        params[1][0] = std::stoi(tokenizer(info[5], ":")[1]);
+        params[1][1] = std::stoi(tokenizer(info[6], ":")[1]);
+        params[1][2] = std::stoi(tokenizer(info[7], ":")[1]);
+
+        if (info.at(8) == "E_below_bulk") { energy_below_bulk = std::stod(info.at(9)); }
     }
         
     if (info[1] == "BLOCK") {
@@ -4607,6 +4117,8 @@ Region* add_region_Elandscape(std::vector<std::string> info) {
     return new_region;
 }
 
+
+
 /**
  * @brief Populates the `region_sites` FourDArr with values corresponding to a custom regions input file.
  *
@@ -4619,7 +4131,7 @@ Region* add_region_Elandscape(std::vector<std::string> info) {
  * @param dim A vector containing the dimensions [x, y, z] of the region space.
  * @param infile_name The name of the input file containing custom region definitions.
  */
-void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, int custom_reg_idx, std::vector<int> dim, std::string infile_name) {
+void custom_draw_regions(std::unordered_map<uint64_t, uint8_t>* sites, std::vector<Region*> regions, int custom_reg_idx, std::vector<int> dim, std::string infile_name) {
     std::cout << "drawing regions \n";
     Region* region;
 
@@ -4630,11 +4142,13 @@ void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, int cust
     int read_idx = 0;
     std::tuple<std::string, int, int, int> tuple_out;
     std::string lattice_pos; int x; int y; int z;
+    uint64_t hash;
 
     for (int i=0; i<(int)regions.size(); i++) {  
         region = regions[i];
         std::cout << "opening custom region file \n";
         in_file.open(infile_name);
+        uint8_t value = (uint8_t)region->id;
 
         if (in_file.is_open()) {
             std::cout << "custom region file open\n";
@@ -4645,14 +4159,20 @@ void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, int cust
                 z = std::get<3>(tuple_out);
                 
                 if ( (x >= dim[0]) || (y >= dim[1]) || (z >= dim[2]) ) {
-                    //printf("ERROR: region site exceed simulation cell bounds");
-                    //throw std::exception();
+                    printf("ERROR: region site exceed simulation cell bounds");
+                    throw std::exception();
+                    exit(0);
                 }
                 else {
                     //std::cout << region->id << "\n";
                     //std::cout << x << y << z << "\n";
-                    (*sites)(0,x,y,z) = region->id;
-                    (*sites)(1,x,y,z) = region->id;
+                    //(*sites)(0,x,y,z) = region->id;
+                    //(*sites)(1,x,y,z) = region->id;
+                    hash = (0 + (x+1) + (dim[0]*y+1) + (dim[0]*dim[1]*z+1));
+                    sites->insert({hash, value});
+                    hash = (1 + (x+1) + (dim[0]*y+1) + (dim[0]*dim[1]*z+1));
+                    sites->insert({hash, value});
+
                 }
             }
             in_file.close();
@@ -4671,7 +4191,7 @@ void custom_draw_regions(FourDArr* sites, std::vector<Region*> regions, int cust
  * @param regions A vector of pointers to `Region` objects that define different regions.
  * @param dim A vector containing the dimensions [x, y, z] of the region space.
  */
-void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int> dim ) {
+void draw_regions(std::unordered_map<uint64_t, uint8_t>* sites, std::vector<Region*> regions, std::vector<int> dim ) {
     Region* region;
     std::vector<int> lo(3);
     std::vector<int> hi(3);
@@ -4687,6 +4207,7 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
     for (int i=0; i<(int)regions.size(); i++) {
         
         region = regions[i];
+        uint8_t value = (uint8_t)region->id;
         std::cout << "region number: " << i << "\n";
 
         if (region->type == "GB") {
@@ -4698,19 +4219,19 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
 
                 start = {0, x_ceil, y, 0}; end = {0, x_ceil, y, dim[1]};
                 coords = FourD_idxs(start, end);
-                sites->assign_idxs(coords, create_vec_1D((int)coords.size(), region->id)); 
+                //sites->assign_idxs(coords, create_vec_1D((int)coords.size(), region->id)); 
 
                 start = {0, x_floor, y, 0}; end = {0, x_floor, y, dim[1]};
                 coords = FourD_idxs(start, end);
-                sites->assign_idxs(coords, create_vec_1D((int)coords.size(), region->id));
+                //sites->assign_idxs(coords, create_vec_1D((int)coords.size(), region->id));
 
                 start = {1, x_ceil, y, 0}; end = {1, x_ceil, y, dim[1]};
                 coords = FourD_idxs(start, end);
-                sites->assign_idxs(coords, create_vec_1D((int)coords.size(), region->id));
+                //sites->assign_idxs(coords, create_vec_1D((int)coords.size(), region->id));
 
                 start = {1, x_floor, y, 0}; end = {1, x_floor, y, dim[1]};
                 coords = FourD_idxs(start, end);
-                sites->assign_idxs(coords, create_vec_1D((int)coords.size(), region->id));
+                //sites->assign_idxs(coords, create_vec_1D((int)coords.size(), region->id));
             } 
         }
 
@@ -4728,12 +4249,26 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
             std::cout << "upperbound[0]: " << region->upperbound[0] << " upperbound[1]: " << region->upperbound[1] << "upperbound[2]: " << region->upperbound[2] << "\n";
 
             start = {0, lo[0], lo[1], lo[2]}; end = {0, hi[0], hi[1], hi[2]};
-            coords = FourD_idxs(start, end);
-            values = create_vec_1D((int)coords.size(),region->id);
-            sites->assign_idxs(coords, values);
-            start = {1, lo[0], lo[1], lo[2]}; end = {1, hi[0], hi[1], hi[2]};
-            coords = FourD_idxs(start, end);
-            sites->assign_idxs(coords, values);
+            //coords = FourD_idxs(start, end);
+            //sites->assign_idxs(coords, values);
+
+            uint64_t hash;
+            for (int j=lo[0]; j<hi[0]; i++) {
+                for (int k=lo[1]; k<hi[1]; i++) {
+                    for (int l=lo[2]; l<hi[2]; i++) {
+                        hash = (0 + (j+1) + (dim[0]*k+1) + (dim[0]*dim[1]*l+1));
+                        sites->insert({hash, (uint8_t)value});
+                        hash = (1 + (j+1) + (dim[0]*k+1) + (dim[0]*dim[1]*l+1));
+                        sites->insert({hash, (uint8_t)value});
+                    }
+                }
+            }
+
+
+            //start = {1, lo[0], lo[1], lo[2]}; end = {1, hi[0], hi[1], hi[2]};
+            //coords = FourD_idxs(start, end);
+            
+            //sites->assign_idxs(coords, values);
         }
     }
     //exit(0);
@@ -4752,7 +4287,7 @@ void draw_regions(FourDArr* sites, std::vector<Region*> regions, std::vector<int
  * @param region_infile Path to an optional file specifying custom region definitions.
  * @return A tuple containing the updated read index, a vector of region pointers, and a pointer to a FourDArr structure.
  */
-std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std::string> lines, std::vector<int> dims, int num_regions, std::string region_infile) {
+std::tuple< int, std::vector<Region*>, std::unordered_map<uint64_t, uint8_t>* > init_regions(std::vector<std::string> lines, std::vector<int> dims, int num_regions, std::string region_infile) {
 
     int read_idx = 0;
     std::vector<Region*> regions;
@@ -4760,18 +4295,9 @@ std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std:
     std::string curr_line = lines[read_idx];
     std::cout << "curr_line: " << lines[read_idx] << "\n";
     std::cout << "num_regions: " << num_regions << "\n";
-    FourDArr* temp_region_sites = new FourDArr(2, dims[0], dims[1], dims[2]);
+    // FourDArr* temp_region_sites = new FourDArr(num_regions > 0 ? 2, dims[0], dims[1], dims[2]: 0,0,0,0);
+    std::unordered_map<uint64_t, uint8_t>* temp_region_hashtable = new std::unordered_map<uint64_t, uint8_t>;
 
-    // initiliazing all entries as 0s
-    for (int i=0; i<2; i++) {
-        for (int j=0; j<dims[0]; j++) {
-            for (int k=0; k<dims[1]; k++) {
-                for (int l=0; l<dims[2]; l++) {
-                    (*temp_region_sites)(i,j,k,l) = 0;
-                }
-            }
-        }
-    }
 
     // reading input file and initializing regions
     int region_idx = 0;
@@ -4818,14 +4344,14 @@ std::tuple< int, std::vector<Region*>, FourDArr* > init_regions(std::vector<std:
 
     if (region_infile.empty()) {
         std::cout << "draw_region: \n";
-        draw_regions(temp_region_sites, regions, dims);
+        draw_regions(temp_region_hashtable, regions, dims);
         }
     else {
         std::cout << "custom_draw_region: \n";
-        custom_draw_regions(temp_region_sites, regions, num_regions, dims, region_infile);
+        custom_draw_regions(temp_region_hashtable, regions, num_regions, dims, region_infile);
         }
 
-    std::tuple< int, std::vector<Region*>, FourDArr* > tuple_out(read_idx, regions, temp_region_sites);
+    std::tuple< int, std::vector<Region*>, std::unordered_map<uint64_t, uint8_t>* > tuple_out(read_idx, regions, temp_region_hashtable);
 
     return tuple_out;
 }
@@ -5007,7 +4533,31 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         a_type_keys.push_back(key);
     } 
 
-    std::tuple< int, std::vector<Region*>, FourDArr*> regions_tuple;
+    std::tuple< int, std::vector<Region*>, std::unordered_map<uint64_t, uint8_t>*> regions_tuple;
+
+    std::vector<std::string> peridoicity_info;
+    std::vector<bool> periodicity(3);
+    if (lines[read_idx].find("periodicity") == std::string::npos) {
+        std::cout << "ERROR: periodicity not specified" << "\n";
+        exit(0);
+    }
+    else { 
+        std::cout << "reading periodicity \n";
+        peridoicity_info = tokenizer(lines[read_idx], " ");
+        
+        if (peridoicity_info[1] == "T") periodicity[0] = true;
+        else if (peridoicity_info[1] == "F") periodicity[0] = false;
+
+        if (peridoicity_info[2] == "T") periodicity[1] = true;
+        else if (peridoicity_info[2] == "F") periodicity[1] = false;
+
+        if (peridoicity_info[3] == "T") periodicity[2] = true;
+        else if (peridoicity_info[3] == "F") periodicity[2] = false;
+        
+        std::cout << "periodicity read " << periodicity[0] << " " << periodicity[1] << " " << periodicity[2] << " " << "\n";
+    }
+
+    read_idx ++;
 
     // gettiing num of regions
     int num_regions = 0;
@@ -5018,9 +4568,12 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         exit(0);
     }
     else { 
+        std::cout << "lines[read_idx] for regions: " << lines[read_idx] << "\n";
         num_regions_info = tokenizer(lines[read_idx], " ");
         num_regions = std::stoi(num_regions_info[1]); 
+        std::cout << "num_regions: " << num_regions << "\n";
     }
+
 
     read_idx ++;
 
@@ -5028,14 +4581,15 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     // reading in region dimensions and constants //
     std::string substring = "regions begin";
     std::vector<Region*> temp_regions;
-    FourDArr* temp_region_sites;
+    std::unordered_map<uint64_t, uint8_t>* temp_region_hashtable;
     int incriment;
 
     if (lines[read_idx].find(substring) != std::string::npos) {
         read_idx ++;
+        std::cout << "initializing region\n";
         regions_tuple = init_regions(slice_1Dvec(lines, read_idx, (int)lines.size()), dims_int, num_regions, region_infile); 
         std::cout << "region!\n";
-        incriment = std::get<0>(regions_tuple); temp_regions = std::get<1>(regions_tuple); temp_region_sites = std::get<2>(regions_tuple);
+        incriment = std::get<0>(regions_tuple); temp_regions = std::get<1>(regions_tuple); temp_region_hashtable = std::get<2>(regions_tuple);
         read_idx += incriment;  
     }
     else {
@@ -5058,7 +4612,6 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         misc_rates_tuple = read_misc_rates_Elandscape(read_idx, lines);
         read_idx = std::get<0>(misc_rates_tuple); misc_rates = std::get<1>(misc_rates_tuple); 
     }
-    
     std::cout << "misc_rates: ";
     print_1Dvector(misc_rates);
 
@@ -5075,10 +4628,13 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     int atomtype;
     int vacancies_count = 0;
 
+    std::cout << "pre init temp_vertex_sites: \n";
     FourDBoolArr* temp_vacancies = new FourDBoolArr(2, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
-    FourDBoolArr* temp_vertex_sites = new FourDBoolArr(1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
-    FourDBoolArr* temp_bc_sites = new FourDBoolArr(1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2]);
-
+    FourDBoolArr* temp_vertex_sites = new FourDBoolArr(((int)a_type_keys.size() > 2) ? (size_t)1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2] : 0,0,0,0);
+    FourDBoolArr* temp_bc_sites = new FourDBoolArr(((int)a_type_keys.size() > 2) ? (size_t)1, (size_t)dims_int[0], (size_t)dims_int[1], (size_t)dims_int[2] : 0,0,0,0);
+    
+    std::cout << "post init temp_vertex_sites: \n";
+   
     std::tuple<size_t, size_t, size_t, size_t> vacs_size_tuple = (*temp_vacancies).size_tuple;
 
 
@@ -5086,20 +4642,24 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         for (size_t j=0; j<(size_t)dims_int[0]; j++) {
             for (size_t k=0; k<(size_t)dims_int[1]; k++) {
                 for (size_t l=0; l<(size_t)dims_int[2]; l++) {
-                    if (i == 0) {
-                        (*temp_vertex_sites)(0,j,k,l) = 1;
-                    }
-                    else if (i == 1) {
-                        (*temp_bc_sites)(0,j,k,l) = 1;
+                    //std::cout << "i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
+                    //std::cout << "a_type_keys.size(): " << a_type_keys.size() << "\n";
+                    if ((int)a_type_keys.size() > 2) {
+                        if (i == 0) {
+                            (*temp_vertex_sites)(0,j,k,l) = 1;
+                        }
+                        else if (i == 1) {
+                            (*temp_bc_sites)(0,j,k,l) = 1;
+                        }
                     }
                     (*temp_vacancies)(i,j,k,l) = 0;
                 }
             }
         }
     }
-    
+    std::cout << "done zeroing arrays\n";
     for (int i=read_idx; i<(int)lines.size(); i++) {
-        //std::cout << lines[i] << "\n";
+        std::cout << lines[i] << "\n";
         tuple_out = parse_line(lines[i]);
         lattice_pos = std::get<0>(tuple_out); x = std::get<1>(tuple_out); y = std::get<2>(tuple_out); 
         z = std::get<3>(tuple_out); atomtype = std::get<4>(tuple_out); 
@@ -5109,38 +4669,44 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
             x = (int)x;
             y = (int)y;
             z = (int)z;
-            
-            if (atomtype == 0) {
-                (*temp_vertex_sites)(0,x,y,z) = 0;
-                (*temp_vacancies)(0,x,y,z) = 1;
-                vacancies_count ++;
+            if ((int)a_type_keys.size() > 2) {
+                if (atomtype == 0) {
+                    (*temp_vertex_sites)(0,x,y,z) = 0;
+                }
+                else if (atomtype == 1) {
+                    (*temp_vertex_sites)(0,x,y,z) = 1;
+                }      
             }
-            else if (atomtype == 1) {
-                (*temp_vertex_sites)(0,x,y,z) = 1;
-            }      
+            else if (atomtype == 0) (*temp_vacancies)(0,x,y,z) = 1;
+
             else {
                 printf("Unrecognized atom type");
                 throw std::exception();
             }
-        }
 
+            vacancies_count ++;
+        }
         else {
             x = (int)(x - 0.5);
             y = (int)(y - 0.5);
             z = (int)(z - 0.5);
 
-            if (atomtype == 0) { 
-                (*temp_bc_sites)(0,x,y,z) = 0;
-                (*temp_vacancies)(1,x,y,z) = 1; 
-                vacancies_count ++;
-            } 
-            else if (atomtype == 1) {
-                (*temp_bc_sites)(0,x,y,z) = 1;
-            } 
+            if ((int)a_type_keys.size() > 2) {
+                if (atomtype == 0) { 
+                    (*temp_bc_sites)(0,x,y,z) = 0;
+                } 
+                else if (atomtype == 1) {
+                    (*temp_bc_sites)(0,x,y,z) = 1;
+                } 
+            }
+            else if (atomtype == 0) (*temp_vacancies)(1,x,y,z) = 1; 
+
             else {
                 printf("Unrecognized atom type");
                 throw std::exception();
             }
+
+            vacancies_count ++;
         }
     }
 
@@ -5253,25 +4819,28 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     // intialzing lattice, basis vectors, vacancies, mobile ions, and fixed //
     // atoms based upon dimensions //
     std::cout << " dims_int[0]: " << dims_int[0] << " dims_int[1]: " << dims_int[1] << " dims_int[2]: " << dims_int[2] << "\n";
-    Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, (int)temp_regions.size(), temp_regions);
+    Lattice* new_lattice = new Lattice(dims_int[0], dims_int[1], dims_int[2], vacancies_count, (int)temp_regions.size(), temp_regions, (int)(a_type_keys.size()-1));
     std::cout << "post Lattice\n";
+        
     for (size_t i=0; i<2; i++) {
         for (size_t j=0; j<(size_t)dims_int[0]; j++) {
             for (size_t k=0; k<(size_t)dims_int[1]; k++) {
                 for (size_t l=0; l<(size_t)dims_int[2]; l++) {
-                    if (i == 0) {
-                        new_lattice->vertex_sites(0,j,k,l) = (*temp_vertex_sites)(0,j,k,l);
+                    if ((int)a_type_keys.size() > 2) {
+                        if (i == 0) {
+                            new_lattice->vertex_sites(0,j,k,l) = (*temp_vertex_sites)(0,j,k,l);
+                        }
+                        else if (i == 1) {
+                            new_lattice->bc_sites(0,j,k,l) = (*temp_bc_sites)(0,j,k,l);
+                        }
                     }
-                    else if (i == 1) {
-                        new_lattice->bc_sites(0,j,k,l) = (*temp_bc_sites)(0,j,k,l);
-                    }
-
-                    new_lattice->region_sites(i,j,k,l) = (*temp_region_sites)(i,j,k,l);
                     new_lattice->vacancies(i,j,k,l) = (*temp_vacancies)(i,j,k,l);
                 }
             }
         }
     } 
+
+    if (num_regions > 0) new_lattice->regions_hash_table = *temp_region_hashtable;
 
     // assigning rates to region-specific rate catalogs 
     std::cout << "pre assign_region_rates_wrapper()\n";
@@ -5297,18 +4866,24 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
         }
     }
 
+    std::cout << "accessing a_types\n";
     for (int i=0; i<(int)a_type_values.size(); i++) {new_lattice->a_types[a_type_keys[i]] = a_type_values[i];}
 
     new_lattice->region_energies = std::get<2>(cat_tuple); 
+    std::cout << "making nonzero_vacs\n";
 
     std::vector< std::vector<int> > nonzero_vacs = new_lattice->vacancies.nonzero();
 
+    std::cout << "made nonzero_vacs\n";
+
     for (int i=0; i<nonzero_vacs.size(); i++) {
         for (int j=0; j<nonzero_vacs[0].size(); j++) {
+            std::cout << "i: " <<i << " j: " <<j << "\n";
             new_lattice->vacancies_pos[i][j] = nonzero_vacs[i][j];
         }
     }
 
+    std::cout << "post assigning vacs pos\n";
     new_lattice->bulk_migration_111 = misc_rates[0];
     new_lattice->bulk_migration_100 = misc_rates[1];
     new_lattice->void_threshold = misc_rates[2];
@@ -5320,81 +4895,17 @@ Lattice* populate_lattice(std::string infile_name, std::string catalogfile_name,
     new_lattice->temperature = misc_rates[8];
     new_lattice->interface_E = misc_rates[9];
     new_lattice->interface_barrier = misc_rates[10];
-    
-    
-    double interface_E_below_bulk = 0;
-    for (int i=0; i<(int)temp_regions.size(); i++) {
-        std::cout << "temp_regions[i]->rates[0]: " << temp_regions[i]->rates[0] << "\n";
-        std::cout << "temp_regions[i]->rates[1]: " << temp_regions[i]->rates[1] << "\n";
-        if (temp_regions[i]->interface) {
-            std::cout << "interface found\n";
-            interface_E_below_bulk = (double)(temp_regions[i]->e_below_bulk);
-            break;
-        }
-    }
-    double void_to_interface_E = 0;
-    double void_to_interface_barr = 0;
-    std::cout << "interface_E_below_bulk: " << interface_E_below_bulk << "\n";
-    std::cout << "new_lattice->void_E: " << new_lattice->void_E << "\n";
-    // void_to_interface_E = -( std::log( - new_lattice->void_E * (1 / 5e12)) * (300 * 8.6173e-5) - interface_E_below_bulk );
-    void_to_interface_E = new_lattice->void_E  - interface_E_below_bulk;
-    std::cout << "void_to_interface_E: " << void_to_interface_E << "\n";
-    
-    if (void_to_interface_E < 0) { 
-        std::cout << "void_to_interface_E < 0\n";
-        void_to_interface_barr = 5e12; } 
-    else {
-        std::cout << "void_to_interface_E >= 0\n"; 
-        void_to_interface_barr = 5e12*std::exp(-void_to_interface_E / (300* 8.6173e-5)); 
-        std::cout << "void_to_interface_barr: " << void_to_interface_barr << "\n"; 
-    }
-
-
-    new_lattice->void_to_interface_barrier = void_to_interface_barr;
-    std::cout << "new_lattice->void_to_interface_barrier: " <<  new_lattice->void_to_interface_barrier << "\n";
-
-    std::cout << "new_lattice->void_E: " <<  new_lattice->void_E << "\n";
-    std::cout << "new_lattice->void_threshold: " <<  new_lattice->void_threshold << "\n";
-    
-    new_lattice->bulk_migration_111_rate = 5e12*std::exp( -new_lattice->bulk_migration_111 / (300* 8.6173e-5)); 
-    new_lattice->bulk_migration_100_rate = 5e12*std::exp( -new_lattice->bulk_migration_100 / (300* 8.6173e-5)); 
-    new_lattice->void_rate = 5e12*std::exp( new_lattice->void_E / (300* 8.6173e-5)); 
-    new_lattice->terrace_111_rate = 5e12*std::exp( -new_lattice->terrace_barrier_111 / (300* 8.6173e-5)); 
-    new_lattice->terrace_100_rate = 5e12*std::exp( -new_lattice->terrace_barrier_100 / (300* 8.6173e-5)); 
-    new_lattice->void_gb_diss_rate = 5e12*std::exp( -new_lattice->void_gb_diss_barrier / (300* 8.6173e-5)); 
-    std::cout << "new_lattice->bulk_migration_111_rate: " << new_lattice->bulk_migration_111_rate << "\n";
-    std::cout << "new_lattice->bulk_migration_100_rate: " << new_lattice->bulk_migration_100_rate << "\n";
-    std::cout << "new_lattice->void_rate: " << new_lattice->void_rate << "\n";
-    std::cout << "new_lattice->terrace_111_rate: " << new_lattice->terrace_111_rate << "\n";
-    std::cout << "new_lattice->void_gb_diss_rate: " << new_lattice->void_gb_diss_rate << "\n";
-    std::cout << "new_lattice->temperature: " << new_lattice->temperature << "\n";
-    std::cout << "new_lattice->interface_E: " << new_lattice->interface_E << "\n";
-    std::cout << "new_lattice->interface_barrier: " << new_lattice->interface_barrier << "\n";
-
-
-    /*
-    new_lattice->void_threshold = 3;
-    new_lattice->void_barrier = 6.84e8; //3.04e6; //6.84e8; //2.88e3; // 5.06e7; //2761667.608;
-    
-    if (new_lattice->void_barrier == 6.84e8) {
-        new_lattice->terrace_barrier_111 = 1.43e9; //1.43e9; //7.13e6; //1.67e9;
-        new_lattice->terrace_barrier_100 = 1.43e9; //1.43e9; //7.13e6; //1.67e9;
-    }
-    else {
-        new_lattice->terrace_barrier_111 = 1.67e9; //1.43e9; //7.13e6; //1.67e9;
-        new_lattice->terrace_barrier_100 = 7.13e6; //1.43e9; //7.13e6; //1.67e9;
-    }
-    
-    new_lattice->void_gb_diss_barrier = 6.84e8; //1.43e9; //7.13e6; //1.67e9;
-    */
+    new_lattice->dim_periodic = periodicity;
 
     delete temp_111_catalog;
     delete temp_100_catalog;
-    delete temp_region_sites;
+    std::cout << "deleting temp_region_hashtable\n";
+    delete temp_region_hashtable;
+    std::cout << "deleted temp_region_hashtable\n";
     delete temp_vacancies;
     delete temp_vertex_sites;
     delete temp_bc_sites;
-
+    
     new_lattice->rate_cumsum.resize(14*nonzero_vacs.size());
 
     return new_lattice;

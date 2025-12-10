@@ -1,6 +1,8 @@
 ## KMC_cpp
 
-This is a C++ and python library for both serial and parallel implementations of the BKL (rejection-free) Kinetic Monte Carlo algorithm. The lattice is specifically constructed for a BCC crystalline system, and the moves/actions in the system include vacancy-mediated diffusion along the {111} and {100} axes, as well as stripping at a pre-specified interface.
+This is a C++ and python library for both serial and parallel implementations of the BKL (rejection-free) Kinetic Monte Carlo algorithm. The lattice is specifically constructed for a BCC crystalline system, and the moves/actions in the system include vacancy-mediated diffusion along the {111} and {100} axes, as well as stripping at a pre-specified interface. Periodic boundary conditions can be applied or an interface (non-periodic) can be specified in the input file. 
+
+Pre-defined regions corresponding to defects or interfaces can be specified in the input file as well, with their own energy relative to the bulk and migration barriers. The regions can either correspond to a rectangular prism shape or a custom shape specified via an input file. Future developments will incoporate defects and their energetic effects on vacancy movement as well.
 
 ### Format of the input file 
 
@@ -8,20 +10,21 @@ For initializing a simulation, one must follow the input format provided in the 
   
 lattice_dims: [xdimension] [ydimension] [zdimension]   
 atomtypes: [atom idx 0]:[atomtype name 0] [atom idx 1]:[atomtype name 10]  
+periodicity: [x_periodicity] [y_periodicity] [z_periodicity]
 num_regions: [number of regions]  
 regions begin  
 [region index]: [region type] [bias direction] xmin:[xmin value] xmax:[xmax value] ymin:[ymin value] ymax:[ymax value] zmin:[zmin value] zmax:[zmax value] rate_neg [bias rate along neg. direc.] rate_pos [bias rate along pos. direc.] INTERFACE(optional) 1 0 1 2 7e8  
 regions end  
 rates begin  
-diag [{111} direction move rate] lateral [{100} direction move rate] void_threshold [number of vacs. for void diss. rate] void_rate [{void diss. rate]  
-terrace_rate_111 [terrace move rate along {111} direc.] terrace_rate_100 [terrace move rate along {100} direc.] void_gb_diss_rate [void diss. rate into gb core]  
+diag [{111} direction move rate] lateral [{100} direction move rate] void_E [energy of facancy on void relative to bulk] voidsurface_E_below_bulk [deprecated (remove)]  
+terrace_rate_111 [terrace move rate along {111} direc.] terrace_rate_100 [terrace move rate along {100} direc.] void_gb_diss_rate [void dissolution rate into gb core]  
 rates end  
 
 ### Organization of the project
 
 The project has the following structure:
 
-    shablona/
+    KMC_cpp/
       |- README.md
       |- kmc_cpp/
          |- kmc_stripping.hpp/

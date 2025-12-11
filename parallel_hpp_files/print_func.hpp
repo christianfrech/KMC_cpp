@@ -106,6 +106,7 @@ void print_2Dvector(std::vector<std::vector<size_t>> vec) {
     std::cout << "] \n\n";
 }
 
+
 /*!
  * \brief Prints the contents of a 1D vector of integers.
  * \param vec The 1D vector to be printed.

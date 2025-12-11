@@ -269,6 +269,7 @@ T slice_1Dvec(T vec, int i1_start, int i1_end) {
     vec.resize(size);
     return vec;
 }
+
 /**
  * @brief Extracts a slice from a 1D vector of doubles.
  * 
@@ -764,6 +765,15 @@ bool is_in(std::vector<int> check_vec, int elem) {
     }
     return false;
 }
+
+
+double sum_values_allprocs(double value) {
+    double reduction_result = 0;    
+    MPI_Reduce(&value, &reduction_result, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    return reduction_result;
+}
+
+
 
 /**
  * @brief Sums vectors across all MPI processes.

@@ -6,3 +6,4 @@ _build/
 auto_examples/
 gen_api/
 *stdout*
+*test*/

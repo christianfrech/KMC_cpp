@@ -510,44 +510,7 @@ public:
                         }
                     }
                 }
-            }
-        }
-    }
-
-    /*! \brief Alias for print_4Dvector(), so FourDArr is a drop-in replacement anywhere
-     * a FourDBoolArr (which exposes .print()) was used -- e.g. the ghost-tracking arrays,
-     * once switched from boolean occupancy to a reference count. */
-    void print() {
-        print_4Dvector();
-    }
-
-    /*!
-     * \brief Reports every (i1,i2,i3,i4) cell whose value differs from array_to_compare's,
-     * mirroring FourDBoolArr::check_equal. Used for FourDArr once it's storing a reference
-     * count rather than a single bit, where the exact count (not just occupied/empty) needs
-     * to match a ground-truth rebuild.
-     */
-    void check_equal(FourDArr& array_to_compare, int rank) {
-        assert(len1_ == array_to_compare.len1_ && len2_ == array_to_compare.len2_ &&
-               len3_ == array_to_compare.len3_ && len4_ == array_to_compare.len4_);
-
-        int mismatch_count = 0;
-        for (size_t i=0; i<len1_; i++) {
-            for (size_t j=0; j<len2_; j++) {
-                for (size_t k=0; k<len3_; k++) {
-                    for (size_t l=0; l<len4_; l++) {
-                        if ((*this)(i,j,k,l) != array_to_compare(i,j,k,l)) {
-                            mismatch_count++;
-                            std::cout << "rank: " << rank << " orig_array_val: " << (*this)(i,j,k,l)
-                            << " comparison_arr_val: " << array_to_compare(i,j,k,l) << "\n";
-                            std::cout << "rank: " << rank << " UNEQUAL i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
-                        }
-                    }
-                }
-            }
-        }
-        if (mismatch_count > 0) {
-            std::cout << "rank: " << rank << " total mismatches: " << mismatch_count << "\n";
+            }    
         }
     }
 
@@ -963,26 +926,22 @@ public:
         std::vector<size_t> comparison_dims = array_to_compare.size_vec;
         assert(std::equal(orig_dims.begin(), orig_dims.begin() + orig_dims.size(), comparison_dims.begin()));
 
-        int mismatch_count = 0;
         for (size_t i=0; i<orig_dims[0]; i++) {
             for (size_t j=0; j<orig_dims[1]; j++) {
                 for (size_t k=0; k<orig_dims[2]; k++) {
                     for (size_t l=0; l<orig_dims[3]; l++) {
                         //std::cout << "rank: " << rank << " i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
-                        if ((*this)(i,j,k,l)
+                        if ((*this)(i,j,k,l) 
                             != array_to_compare(i,j,k,l)) {
-                            mismatch_count++;
-                            std::cout << "rank: " << rank << " orig_array_val: " << (*this)(i,j,k,l)
+                            std::cout << "rank: " << rank << " orig_array_val: " << (*this)(i,j,k,l) 
                             << " comparison_arr_val: " << array_to_compare(i,j,k,l) << "\n";
                             std::cout << "rank: " << rank << " UNEQUAL i: " << i << " j: " << j << " k: " << k << " l: " << l << "\n";
+                            exit(0);
                         }
-                    }
-                }
-            }
-        }
-        if (mismatch_count > 0) {
-            std::cout << "rank: " << rank << " total mismatches: " << mismatch_count << "\n";
-        }
+                    } 
+                }  
+            } 
+        } 
     }
 
 };

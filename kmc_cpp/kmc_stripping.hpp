@@ -2284,7 +2284,6 @@ class Lattice {
                 new_facet_E = find_facet_E_hashcomputed(new_facet_hash);
             }
 
-
             reg_id = find_region_id(coord[0], coord[1], coord[2], coord[3]);
             new_reg_id = find_region_id(i_new, j_new, k_new, l_new);
 
